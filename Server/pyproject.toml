@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "server"
+version = "2025.0.1"
+requires-python = ">=3.13"
+dependencies = []
+
+[project.scripts]
+server = "server.main:main"

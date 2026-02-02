@@ -1,0 +1,10 @@
+[project]
+name = "secure-group-chat"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "pyinstaller>=6.18.0",
+]
+
+[tool.uv.workspace]
+members = ["Client", "Server"]
