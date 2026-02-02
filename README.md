@@ -29,11 +29,11 @@ If nothing works visit: https://docs.astral.sh/uv/getting-started/installation/
 - `uv init` Create a new Python project.
 
 
-## Installation & Setup
+## Installation & Setup of the project
 1. Clone the repository
 ```bash
 # Clone this repository with git
-git clone project_link
+git clone https://github.com/BertramAakjaer/Secure-Group-Chat-AAU.git
 
 # Open the directory in terminal
 cd Secure-Group-Chat-AAU/
@@ -43,7 +43,7 @@ cd Secure-Group-Chat-AAU/
 ```bash
 uv sync
 
-# If u get an error try this!
+# Fixes error on some systems
 uv sync --link-mode=copy
 ```
 
