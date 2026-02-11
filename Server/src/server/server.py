@@ -52,6 +52,7 @@ class Server:
                 return
             elif username in self.name_uid_map: # Hvis det username allerede existerer
                 logging.warning(f"Connection from {addr} already existing name: '{username}'. Closing.")
+                username = None
                 return
             
             user_id = gen_random_uid() # Opretter et tilfældigt user id
