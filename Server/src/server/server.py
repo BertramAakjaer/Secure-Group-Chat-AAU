@@ -9,21 +9,21 @@ from common.utils import gen_random_uid
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class Server:
-    def __init__(self, host='127.0.0.1', port=8888):
-        self.host = host
+    def __init__(self, ip, port):
+        self.ip = ip
         self.port = port
         self.clients = {}  # hash map af user_id og dens "writer" tcp connection
         self.name_uid_map = {} # hash map of name and user_id
 
     async def start(self): # Initialiserer serveren og starter med at lytte efter inkommende trafik
-        server = await asyncio.start_server(self.handle_client, self.host, self.port)
+        server = await asyncio.start_server(self.handle_client, self.ip, self.port)
         
-        display_ip = self.host
-        if self.host == "0.0.0.0":
+        display_ip = self.ip
+        
+        if self.ip == "0.0.0.0": # Finder "hosts" ip addresse for at kunne vise hvilken der skal forbindes til
             try:
-                # We connect to a public DNS (Google) to find out which local IP 
                 with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-                    s.connect(("8.8.8.8", 80))
+                    s.connect(("8.8.8.8", 80)) # Google DNS
                     display_ip = s.getsockname()[0]
             except Exception:
                 display_ip = "127.0.0.1"
@@ -32,6 +32,7 @@ class Server:
                 
         async with server:
             await server.serve_forever()
+    
 
     async def handle_client(self, reader, writer):
         username = None

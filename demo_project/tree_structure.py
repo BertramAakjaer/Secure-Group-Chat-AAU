@@ -1,6 +1,37 @@
-import math
+import math, hashlib
 
-def get_smallest_power_of_two(n):
+
+class Node:
+    def __init__(self):
+        self.child_a = None
+        self.child_b = None
+        
+        self.pub_key = None
+        self.pri_key = None
+        self.secret = None # Privat secret
+        
+        self.is_leaf = False
+        self.client_uid = None
+        
+
+    def derive_keys(self, seed):
+        self.secret = seed
+        # Vi kunne bruge Elliptic Curves (bruges sha-256 som demo)
+        self.pri_key = hashlib.sha256(seed + b"pri").hexdigest()[:8] 
+        self.pub_key = hashlib.sha256(self.pri_key.encode()).hexdigest()[:8]
+        
+        # Retunerer et "seed" til næste node
+        return hashlib.sha256(seed + b"parent").digest() # b"parent" som "salt"
+    
+    def blank_out(self):
+        self.pub_key = None
+        self.pri_key = None
+        self.secret = None
+        self.client_uid = None
+
+
+# Returns the depth of the tree and number of leaf nodes
+def _get_tree_size(n):
     minimum = 8
     maximum = 16384
     
@@ -12,21 +43,9 @@ def get_smallest_power_of_two(n):
     return (math.log2(leaf_nodes), leaf_nodes)
 
 
-class Node:
-    def __init__(self):
-        self.child_a = None
-        self.child_b = None
-        
-        self.pub_key = None
-        self.pri_key = None
-        
-        self.is_leaf = False
-        self.client_uid = None
-
-
 class Tree:
-    def __init__(self, min_users=4):
-        self.tree_depth, self.leaf_nodes = get_smallest_power_of_two(min_users)
+    def __init__(self, min_users):
+        self.tree_depth, self.leaf_nodes = _get_tree_size(min_users)
         self.tree_depth = int(self.tree_depth)
         
         self.root = self.create_tree_structure(self.tree_depth)
@@ -58,6 +77,7 @@ class Tree:
                 index -= midpoint
                 
         return current
+    
 
     def fill_leaf(self, index, client_uid, pub_key):
         target_node = self.get_node_at_position(self.tree_depth, index)
@@ -68,24 +88,18 @@ class Tree:
         
         
     def print_tree(self, node=None, depth=0):
-        if node is None and depth == 0:
+        if node is None and depth == 0: # Sørger for at funktion kan kaldes uden start "node"
             node = self.root
 
         indent = "\t" * depth
         
         pub = node.pub_key if node.pub_key is not None else "None"
         pri = node.pri_key if node.pri_key is not None else "None"
-        uid = f" (UID: {node.client_uid})" if node.is_leaf and node.client_uid else ""
+        uid = node.client_uid if node.is_leaf and node.client_uid else ""
 
-        print(f"{indent}O: Pub {pub} | Pri {pri}")
+        print(f"{indent}({uid}): Pub {pub} | Pri {pri}")
 
         if node.child_a:
             self.print_tree(node.child_a, depth + 1)
         if node.child_b:
             self.print_tree(node.child_b, depth + 1)
-
-
-
-if __name__ == "__main__":
-    træ = Tree()
-    træ.print_tree()

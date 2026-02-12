@@ -65,33 +65,38 @@ class Client:
 
     def process_incoming_message(self, msg):
         try:
-            type = msg.get("type")
+            msg_type = msg.get("type")
             sender = msg.get("sender")
             content = msg.get("content")
-            
-            match type:
+        
+            print("\r\033[K", end="", flush=True)
+                        
+            match msg_type:
                 case PackageType.WELCOME:
-                    print(f"\n[MLS] WELCOME received from {sender}. Joining group...")
-                    # Logic: Initialize local group state from content
+                    print(f"[MLS] WELCOME received from {sender}. Joining group...")
+                    # Træet skal bygges ud fra her med en "keypackage"
                 
                 case PackageType.COMMIT:
-                    print(f"\n[MLS] Group Update (Commit) from {sender}.")
-                    # Logic: Update local Ratchet Tree
+                    print(f"[MLS] Group Update (Commit) from {sender}.")
+                    # Ændring i epoch og selve træet
                     
                 case PackageType.MSG:
-                    print(f"\n[{sender}]: {content}")
+                    # Find en anden måde at vise teksten (kan gemmes i en liste eller ligende)
+                    print(f"[{sender}]: {content}")
+            
+            print(">> ", end="", flush=True)
         
         except Exception as e:
-            print(f"Error when finding Package type {e}")
-        
-        print(">> ", end="", flush=True)
+            print(f"\nError processing message: {e}")
+
 
     async def handle_user_input(self):
         while self.running:
             msg_content = await ainput(">> ")
             if not msg_content: continue
-
+            
             await self.process_user_command(msg_content)
+            
 
     async def process_user_command(self, content):
         payload = {}
