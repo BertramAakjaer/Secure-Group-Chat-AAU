@@ -86,3 +86,6 @@ uv run pyinstaller --onefile --noconsole --name "SecureChatClient" Client/src/cl
 # Build the Server
 uv run pyinstaller --onefile --noconsole --name "SecureChatServer" Server/src/client/main.py
 ```
+
+
+
