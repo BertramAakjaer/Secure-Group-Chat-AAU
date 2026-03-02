@@ -1,12 +1,32 @@
-import hashlib, time, random, os
+import hashlib, time, random, os, json
+
+
 from cryptography.hazmat.primitives.asymmetric import x25519
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-def gen_random_uid(length=10) -> str: 
+
+
+def gen_random_uid(length=12) -> str: 
     string_val = f"{time.time()}{random.random()}" 
     return hashlib.md5(string_val.encode()).hexdigest()[:length]
+
+def gen_random_gid(length=6) -> str: 
+    string_val = f"{time.time()}{random.random()}" 
+    return hashlib.md5(string_val.encode()).hexdigest()[:length]
+
+def to_json(data: dict) -> str:
+    json_output = json.dumps(data, indent=4)
+    return json_output
+
+def from_json(json_msg: str) -> dict:
+    original_structure = json.loads(json_msg)
+    return original_structure
+
+
+
+
 
 def derive_keypair_from_seed(seed: bytes):
     """Derives an X25519 ECC keypair from a 32-byte seed."""
