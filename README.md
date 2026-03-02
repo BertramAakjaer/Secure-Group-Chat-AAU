@@ -47,13 +47,19 @@ uv sync
 uv sync --link-mode=copy
 ```
 
-1. Run the program
+3. Run the program
 ```bash
 # Run the Client
 uv run --package client client
 
 # Run the Server
 uv run --package server server
+```
+> [!TIP]
+> If u get an error that mentions that the system can't get access to the python.exe, run this code:
+```bash
+# Installs python for the uv installation only
+uv python install 3.13
 ```
 
 
