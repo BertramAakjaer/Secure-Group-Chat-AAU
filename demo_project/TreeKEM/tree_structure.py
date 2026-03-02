@@ -1,7 +1,8 @@
-import math, hashlib
+import math
+import util
 
 
-class Node:
+class Node_Own:
     def __init__(self):
         self.child_a = None
         self.child_b = None
@@ -16,12 +17,12 @@ class Node:
 
     def derive_keys(self, seed):
         self.secret = seed
-        # Vi kunne bruge Elliptic Curves (bruges sha-256 som demo)
-        self.pri_key = hashlib.sha256(seed + b"pri").hexdigest()[:8] 
-        self.pub_key = hashlib.sha256(self.pri_key.encode()).hexdigest()[:8]
         
-        # Retunerer et "seed" til næste node
-        return hashlib.sha256(seed + b"parent").digest() # b"parent" som "salt"
+        # Opretter key-pair
+        self.pri_key, self.pub_key = util.derive_keypair_from_seed(seed)
+        
+        # Returns seed for the next node
+        return util.derive_parent_seed(seed)
     
     def blank_out(self):
         self.pub_key = None
@@ -29,6 +30,33 @@ class Node:
         self.secret = None
         self.client_uid = None
 
+class Node_Member:
+    def __init__(self):
+        self.child_a = None
+        self.child_b = None
+        
+        self.pub_key = None
+        self.pri_key = None
+        self.secret = None # Privat secret
+        
+        self.is_leaf = False
+        self.client_uid = None
+        
+
+    def derive_keys(self, seed):
+        self.secret = seed
+        
+        # Opretter key-pair
+        self.pri_key, self.pub_key = util.derive_keypair_from_seed(seed)
+        
+        # Returns seed for the next node
+        return util.derive_parent_seed(seed)
+    
+    def blank_out(self):
+        self.pub_key = None
+        self.pri_key = None
+        self.secret = None
+        self.client_uid = None
 
 # Returns the depth of the tree and number of leaf nodes
 def _get_tree_size(n):
