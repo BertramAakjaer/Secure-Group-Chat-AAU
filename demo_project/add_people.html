@@ -28,7 +28,7 @@ html, body {
 }
 .plus-icon {
     position: absolute;
-    bottom: 10px;
+    bottom: -64px;
     right: 20px;
 }
 </style>
@@ -109,52 +109,28 @@ html, body {
             </svg>      
            </a>
         </div>
-
-        <!-- Chat Area -->
-        <div class="col-md-9 col-12 p-0 d-flex flex-column">
-            <div class="chat-messages p-3">
-                <div class="message mb-3 align-self-start">
-                    <div class="bg-light rounded p-2">
-                        <strong>Erika:</strong> Hey, how are you guys?
-                    </div>
-                    <small class="text-muted">3 mins ago</small>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+             <div class="container-fluid">
+                <a class="navbar-brand" href="#">Chat App</a>
                 </div>
-                <div class="message mb-3 align-self-end">
-                    <div class="bg-primary text-white rounded p-2">
-                        I'm good, thanks! How about you?
-                    </div>
-                    <small class="text-muted">2 mins ago</small>
+    </nav>
+        </form>
+            <center>
+                <form id="loginForm" style="margin-top: -400px; width: 300px;">  
+                <div class="form-group">
+                    <label for="exampleusername">Username</label>
+                    <input type="text" class="form-control" id="exampleusername" placeholder="Enter Username">
                 </div>
-                <!-- Add more messages here -->
-                <div class="message mb-3 align-self-start">
-                    <div class="bg-light rounded p-2">
-                        <strong>Madeline:</strong> Hey, i am good too, what about you?
-                    </div>
-                    <small class="text-muted">1 mins ago</small>
-                    <small id="time"></small>
-
-                    <script>
-                    var dateWithoutSecond = new Date();
-
-                    var time = dateWithoutSecond.toLocaleTimeString(
-                        navigator.language,
-                        { hour: '2-digit', minute: '2-digit' }
-                    );
-
-                    document.getElementById("time").textContent = time;
-                    </script>
+                <div style="margin-top: 10px;">  
+                <div class="form-group">
+                    <label for="examplegroupID">Group-ID</label>
+                    <input type="number" class="form-control" id="examplegroupID" aria-describedby="groupID" placeholder="Enter Group-ID">
                 </div>
-            </div>
-
-            <div class="message-input p-3">
-                <form>
-                    <div class="input-group">
-                        <input type="text" class="form-control" placeholder="Type a message...">
-                        <button class="btn btn-primary" type="submit">
-                                <i class="bi bi-send"></i> Send
-                            </button>
-                    </div>
+                    <div style="margin-top: 10px;">   
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
                 </form>
+            </center>
                 <script>
                 const form = document.querySelector(".message-input form");
                 const input = document.querySelector(".message-input input");
@@ -179,11 +155,15 @@ html, body {
                   input.value = "";
                 });
 
+                
               </script>
            </div>
+           
         </div>
     </div>
+    
 </div>
+
 
 
 <script>
