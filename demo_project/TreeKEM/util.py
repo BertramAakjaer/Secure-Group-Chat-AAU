@@ -43,6 +43,9 @@ def derive_parent_seed(seed: bytes) -> bytes:
     hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"parent_seed")
     return hkdf.derive(seed)
 
+
+
+
 def encrypt_to_pub(recipient_pub_key: x25519.X25519PublicKey, secret_to_encrypt: bytes):
     """Encrypts a payload so only the owner of the private key can read it."""
     # 1. Generate an ephemeral (temporary) keypair
@@ -61,6 +64,7 @@ def encrypt_to_pub(recipient_pub_key: x25519.X25519PublicKey, secret_to_encrypt:
     ciphertext = aesgcm.encrypt(nonce, secret_to_encrypt, None)
     
     return ephemeral_pub.public_bytes_raw(), nonce, ciphertext
+
 
 def decrypt_with_pri(my_pri_key: x25519.X25519PrivateKey, ephemeral_pub_bytes: bytes, nonce: bytes, ciphertext: bytes) -> bytes:
     """Decrypts a payload received from another user."""

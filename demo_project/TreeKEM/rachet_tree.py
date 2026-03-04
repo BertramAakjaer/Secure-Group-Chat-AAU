@@ -2,7 +2,7 @@ import math
 
 
 import util
-from nodes import Node_Member, Node_Own
+from nodes import Node_Member, Node_Own, make_node_owned
 
 # Returns the depth of the tree and number of leaf nodes
 def _get_tree_size(n):
@@ -18,8 +18,8 @@ def _get_tree_size(n):
 
 
 class Tree:
-    def __init__(self, local_uuid: str, welcome_msg: dict, min_users: int=5):
-        self.local_user: str = local_uuid
+    def __init__(self, local_uid: str, welcome_msg: dict, min_users: int=5):
+        self.local_user: str = local_uid
         self.path_user = []
         
         self.tree_depth: int | None
@@ -27,7 +27,7 @@ class Tree:
         
         self.root: Node_Own | None
         
-        self.users: dict[str, int] # UID til leaf index fra 0..n fra venstre
+        self.users: dict[str, int] = {} # UID til leaf index fra 0..n fra venstre
         
         # Initalisere data der bruges
         self._init_tree(min_users, welcome_msg)
@@ -40,13 +40,23 @@ class Tree:
         if isinstance(root_temp, Node_Own):
             self.root = root_temp
         else:
-            raise RuntimeError("Panic: Root is not owned")
+            raise RuntimeError("Panic: Root node error")
         
-        self.users[self.local_user] = 0
+        users_data = welcome_msg["users"] # Getting all users and their indecies
+
+        user_found_check: bool = False
+        for user_id, index in users_data.items():
+            self.fill_leaf_uid(index, user_id)
+            self.users[user_id] = index
+            
+            if self.local_user == user_id:
+                user_found_check = True
         
-        self.get_node_at(self.tree_depth, 0)
+        if not user_found_check:
+            raise RuntimeError("Panic: User not in welcome package")
+                
+        self.path_user = self.set_direct_path_owned(self.users[self.local_user])
         
-        self.path_user = self.get_direct_path(self.users[self.local_user])        
     
     
     def _create_tree_structure(self, current_depth: int):
@@ -88,8 +98,10 @@ class Tree:
                 
         return current
     
-    def get_direct_path(self, leaf_index: int):
+    
+    def set_direct_path_owned(self, leaf_index: int):
         path = [] # liste af nodes
+        choices: list[bool] = []
         
         current = self.root # Starter fra toppen
         target_depth = self.tree_depth # Skal kende dybden
@@ -108,16 +120,44 @@ class Tree:
                 raise RuntimeError("Panic: Node is not set")
             
             # Binary search agtig system
-            if index < midpoint:
+            if leaf_index < midpoint:
+                choices.append(False)
                 current = current.child_a
             else:
+                choices.append(True)
                 current = current.child_b
-                index -= midpoint
+                leaf_index -= midpoint
                 
         path.append(current)
         
+        reversed_path = reversed(path)
+        
+        new_owned_nodes: list[Node_Own] = []
+        
+        for index, node in enumerate(reversed_path):
+            if index == 0:
+                new_node = make_node_owned(node)
+                new_owned_nodes.append(new_node)
+                continue
+            
+            choice: bool = choices.pop()
+            
+            new_node = make_node_owned(node)
+            
+            if not choice:
+                new_node.child_a = new_owned_nodes[-1]
+            else:
+                new_node.child_b = new_owned_nodes[-1]
+                
+            new_owned_nodes.append(new_node)
+        
+        self.root = new_owned_nodes[-1]
+        
         # Vi starter fra leaf..root når keys udregnes
-        return reversed(path)
+        return  new_owned_nodes
+    
+    
+    
     
     def apply_msg(self, msg):
         pass
@@ -131,17 +171,8 @@ class Tree:
     
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
 
-    def fill_leaf(self, index, client_uid, pub_key):
+    def fill_leaf_uid(self, index, client_uid):
         if not self.tree_depth:
             raise RuntimeError("Tree Depth: Not assigned")
         
@@ -149,4 +180,50 @@ class Tree:
         
         if isinstance(target_node, Node_Member): 
             target_node.client_uid = client_uid
-            target_node.set_pub_key(pub_key)
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    # For debugging purpose
+    def print_tree(self, node=None, depth=0):
+        # Start from the root if no node is provided initially
+        if node is None and depth == 0:
+            node = self.root
+
+        # Guard against empty trees or None nodes to satisfy the type checker
+        if node is None:
+            return
+
+        # Create an indentation based on the current depth
+        indent = "\t" * depth
+        
+        # Retrieve public key, private key, and user ID if available
+        pub = node.pub_key if node.pub_key is not None else "None"
+        pri = getattr(node, "pri_key", "None") if getattr(node, "pri_key", None) is not None else "None"
+        uid = node.client_uid if node.is_leaf and node.client_uid else ""
+        
+        # Identify the type of the node (Node_Own or Node_Member)
+        if isinstance(node, Node_Member):
+            node_type = "Member"
+        else:
+            node_type = "Own"
+
+        # Print the current node's information
+        print(f"{indent}({uid}) [{node_type}]: Pub {pub} | Pri {pri}")
+
+        # Recursively print the left and right children if they exist
+        if getattr(node, "child_a", None) is not None:
+            self.print_tree(node.child_a, depth + 1)
+        if getattr(node, "child_b", None) is not None:
+            self.print_tree(node.child_b, depth + 1)

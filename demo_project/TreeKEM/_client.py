@@ -2,7 +2,6 @@ import json
 
 import util
 
-from delivery_service import DeliveryService
 from rachet_tree import Tree
 
 class GroupChat:
@@ -17,12 +16,13 @@ class GroupChat:
 
 
 class Client:
-    def __init__(self, name: str, uid: str, ds: DeliveryService):
+    def __init__(self, name: str, uid: str, ds):
         self.name: str = name
         self.uid: str = uid
-        self.ds: DeliveryService = ds
+        self.ds = ds
         
-        self.group_chats: dict[str, GroupChat]
+        self.group_chats: dict[str, GroupChat] = {}
+
         
     def send_group_message(self, plaintext):
         pass
@@ -30,7 +30,8 @@ class Client:
     def recieve_group_message(self, ciphertext):
         pass
 
-    def process_msg(self, msg):
+
+    def process_welcome(self, msg):
         match msg["header"]:
             case "WELCOME":
                 self.group_chats[msg["group_id"]] = GroupChat(msg, self.uid)
