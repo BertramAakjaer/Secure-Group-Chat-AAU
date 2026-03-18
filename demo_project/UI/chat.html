@@ -36,23 +36,7 @@ html, body {
 
 <script>
 /* Så man kan klikke på dem */
- const chats = {
-  "Erika": [
-    { sender: "Erika", text: "Hey, how are you?", time: "3 mins ago" },
-    { sender: "You", text: "I'm good thanks!", time: "2 mins ago" }
-  ],
-  "Madeline": [
-    { sender: "Madeline", text: "Are we on today?", time: "1 hour ago" }
-  ],
-  "Python": [
-    { sender: "Erika", text: "What was the work again?", time: "1 hour ago" }
-  ],
-  "Girlss": [
-    { sender: "Erika", text: "Hey, how are you guys?", time: "3 mins ago" },
-    { sender: "You", text: "I'm good, thanks! How about you?", time: "2 mins ago" },
-    { sender: "Madeline", text: "Hey, I am good too, what about you?", time: "1 mins ago" }
-  ]
-};
+fetch("chat.json")
 </script>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
