@@ -12,6 +12,8 @@ def main():
     ds.add_new_client(user3)
 
     ds.add_new_group(ds.get_user_id(user1))
+    
+    
 
 
 

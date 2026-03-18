@@ -26,10 +26,11 @@ def from_json(json_msg: str) -> dict:
 
 
 
+def gen_new_leaf_seed():
+    return os.urandom(32)
 
 
 def derive_keypair_from_seed(seed: bytes):
-    """Derives an X25519 ECC keypair from a 32-byte seed."""
     # HKDF safely expands the seed into 32 bytes suitable for X25519
     hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"node_keypair")
     key_bytes = hkdf.derive(seed)
@@ -39,7 +40,6 @@ def derive_keypair_from_seed(seed: bytes):
     return pri_key, pub_key
 
 def derive_parent_seed(seed: bytes) -> bytes:
-    """Derives the seed for the parent node using a one-way KDF."""
     hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"parent_seed")
     return hkdf.derive(seed)
 
