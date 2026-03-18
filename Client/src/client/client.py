@@ -46,21 +46,22 @@ class Client:
 
 
     async def listen_for_messages(self): # lytter efter inkommende pakker
-        while self.running:
-            try:
-                data = await self.reader.readline() # Hvis intet data kan læses er forbindelsen til serven stoppet
-                if not data:
-                    print("\nDisconnected from server !!")
+        if self.reader:
+            while self.running:
+                try:
+                    data = await self.reader.readline() # Hvis intet data kan læses er forbindelsen til serven stoppet
+                    if not data:
+                        print("\nDisconnected from server !!")
+                        self.running = False
+                        break
+                    
+                    message = json.loads(data.decode()) # Tager bytes læst fra serveren om omdanner til python string og derefter fra string(json) til dict.
+                    self.process_incoming_message(message)
+                    
+                except Exception as e:
+                    print(f"Network error: {e}")
                     self.running = False
                     break
-                
-                message = json.loads(data.decode()) # Tager bytes læst fra serveren om omdanner til python string og derefter fra string(json) til dict.
-                self.process_incoming_message(message)
-                
-            except Exception as e:
-                print(f"Network error: {e}")
-                self.running = False
-                break
 
 
     def process_incoming_message(self, msg):
