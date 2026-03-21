@@ -4,42 +4,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Henviser til CSS-filen -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"> <!-- Link to the CSS file in the folder -->
     <title>Chat App</title>
 </head>
 <body>
 
-<style>
-html, body {
-    height: 100%;
-}
-
-.chat-container {
-    height: calc(100vh - 56px); /* 56px = navbar height */
-}
-
-.chat-messages {
-    flex: 1;
-    overflow-y: auto;
-}
-.col-md-3 {
-    position: relative;
-}
-.plus-icon {
-    position: absolute;
-    bottom: 10px;
-    right: 20px;
-}
-
-</style>
-
+<!-- Hent chat.json -->
 <script>
 /* Så man kan klikke på dem */
-fetch("chat.json")
-</script>
+let chats = {};
 
-<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+fetch("{{ url_for('static', filename='chat.json') }}")
+  .then(response => response.json())
+  .then(data => {
+    chats = data;
+  });
+</script>
 
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
@@ -52,18 +36,20 @@ fetch("chat.json")
         <!-- Contacts Sidebar -->
         <div class="col-md-3 col-12 border-end p-0">
             <div class="contacts-list p-3">
+                <!-- Søgning -->
                 <div class="mb-3">
                     <input type="text" class="form-control" placeholder="Search contacts...">
                 </div>
+                <!-- Kontaktliste -->
                 <div class="list-group">
-                    <a href="#" onclick="openChat('Girlss')" class="list-group-item list-group-item-action">
+                    <a href="#" onclick="openChat('Girlss'); return false;" class="list-group-item list-group-item-action">
                       <div class="d-flex w-100 justify-content-between">
                         <h5 class="mb-1">Girlss</h5>
                         <small>3 mins ago</small>
                       </div>
                       <p class="mb-1">Hey, how are you?</p>
                     </a>
-                    <a href="#" onclick="openChat('Erika')" class="list-group-item list-group-item-action">
+                    <a href="#" onclick="openChat('Erika'); return false;" class="list-group-item list-group-item-action">
                         <div class="d-flex w-100 justify-content-between">
                             <h5 class="mb-1">Erika</h5>
                             <small>1 hour ago</small>
@@ -71,14 +57,14 @@ fetch("chat.json")
                         <p class="mb-1">Are we still on for lunch?</p>
                     </a>
                     <!-- Add more contacts here -->
-                    <a href="#" onclick="openChat('Madeline')" class="list-group-item list-group-item-action">
+                    <a href="#" onclick="openChat('Madeline'); return false;" class="list-group-item list-group-item-action">
                       <div class="d-flex w-100 justify-content-between">
                         <h5 class="mb-1">Madeline</h5>
                         <small>1 hour ago</small>
                       </div>
                       <p class="mb-1">Are we on today?</p>
                     </a>
-                    <a href="#" onclick="openChat('Python')" class="list-group-item list-group-item-action">
+                    <a href="#" onclick="openChat('Python'); return false;" class="list-group-item list-group-item-action">
                       <div class="d-flex w-100 justify-content-between">
                         <h5 class="mb-1">Python</h5>
                         <small>1 hour ago</small>
@@ -119,7 +105,7 @@ fetch("chat.json")
                     <small id="time"></small>
                 </div>
             </div>
-
+            <!-- Message Input -->
             <div class="message-input p-3">
                 <form>
                     <div class="input-group">
@@ -129,27 +115,33 @@ fetch("chat.json")
                             </button>
                     </div>
                 </form>
+                <!-- Send message -->
                 <script>
+                // Finder formularen (send-knappen + input)
                 const form = document.querySelector(".message-input form");
+                // Finder input-feltet hvor man skriver beskeden
                 const input = document.querySelector(".message-input input");
-
+                
+                // Når man trykker "Send"
                 form.addEventListener("submit", function(e) {
                   e.preventDefault();
-
+                  
+                  // Henter teksten fra input og fjerner mellemrum
                   const msg = input.value.trim();
                   if (!msg) return;
-
+                // Opretter en ny besked (div)
                 const wrapper = document.createElement("div");
                 wrapper.className = "message mb-3 align-self-end";
-
+                // Indsætter selve beskedens HTML
                 wrapper.innerHTML = `
                   <div class="bg-primary text-white rounded p-2">
                     ${msg}
                   </div>
                   <small class="text-muted">Just now</small>
                 `;
-
+                // Finder chat-boksen og tilføjer beskeden nederst
                 document.querySelector(".chat-messages").appendChild(wrapper);
+                // Tømmer input-feltet efter man har sendt beskeden
                   input.value = "";
                 });
 
@@ -159,7 +151,7 @@ fetch("chat.json")
     </div>
 </div>
 
-
+<!-- ÅBN CHAT (VIS BESKEDER FRA JSON) -->
 <script>
 function openChat(name) {
   const chatBox = document.querySelector(".chat-messages");
@@ -176,21 +168,31 @@ function openChat(name) {
   // --- slut aktiv kontakt highlight ---
 
   // --- Vis chatbeskeder ---
-  if (chats[name]) {
-    chats[name].forEach(msg => {
+  // Hvis der ikke findes en chat med det navn → vis fejl
+  if (!chats[name]) {
+     chatBox.innerHTML = "<p>Ingen beskeder fundet.</p>";
+     return;
+     }
+     // Går igennem alle beskeder i den valgte chat
+      chats[name].forEach(msg => {
+     // Opretter en ny besked (div)
       const wrapper = document.createElement("div");
+     // Hvis afsender er "You" → højre side
+     // ellers → venstre side
       wrapper.className = "message mb-3 " + (msg.sender === "You" ? "align-self-end" : "align-self-start");
-
+     // Indsætter HTML for beskeden
+           // Hvis det er dig → blå baggrund
+           // ellers → grå baggrund
       wrapper.innerHTML = `
         <div class="${msg.sender === "You" ? "bg-primary text-white" : "bg-light"} rounded p-2">
           ${msg.sender !== "You" ? "<strong>" + msg.sender + ":</strong> " : ""}${msg.text}
         </div>
         <small class="text-muted">${msg.time}</small>
       `;
+      // Tilføjer beskeden til chatten
       chatBox.appendChild(wrapper);
     });
   }
-}
 </script>
 
 </body>
