@@ -3,91 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <title>Chat App</title>
 
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-
+    <style>
+        html, body {
+            height: 100%;
+        }
+        .chat-container {
+            height: calc(100vh - 56px);
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+        }
+        .col-md-3 {
+            position: relative;
+        }
+        .plus-icon {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+        }
+        #startpage {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
 </head>
 <body>
-
-<script>
-const chats = {
-  "Erika": [
-    { sender: "Erika", text: "Hey, how are you?", time: "3 mins ago" },
-    { sender: "You", text: "I'm good thanks!", time: "2 mins ago" }
-  ],
-  "Madeline": [
-    { sender: "Madeline", text: "Are we on today?", time: "1 hour ago" }
-  ],
-  "Python": [
-    { sender: "Erika", text: "What was the work again?", time: "1 hour ago" }
-  ],
-  "Girlss": [
-    { sender: "Erika", text: "Hey, how are you guys?", time: "3 mins ago" },
-    { sender: "You", text: "I'm good, thanks! How about you?", time: "2 mins ago" },
-    { sender: "Madeline", text: "Hey, I am good too, what about you?", time: "1 mins ago" }
-  ]
-};
-
-let currentChat = null;
-
-function openChat(name) {
-  currentChat = name;
-  document.getElementById("startpage").style.display = "none";
-  document.getElementById("chatArea").classList.remove("d-none");
-
-  const chatBox = document.querySelector(".chat-messages");
-  chatBox.innerHTML = "";
-
-  document.querySelectorAll(".list-group-item").forEach(item => {
-    item.classList.remove("active");
-  });
-
-  const contactItem = Array.from(document.querySelectorAll(".list-group-item"))
-    .find(a => a.textContent.includes(name));
-
-  if (contactItem) contactItem.classList.add("active");
-
-  if (chats[name]) {
-    chats[name].forEach(msg => addMessageToChat(msg.sender, msg.text, msg.time));
-  }
-}
-
-function addMessageToChat(sender, text, time) {
-  const chatBox = document.querySelector(".chat-messages");
-  const wrapper = document.createElement("div");
-  wrapper.className = "message mb-3 " + (sender === "You" ? "align-self-end" : "align-self-start");
-
-  wrapper.innerHTML = `
-    <div class="${sender === "You" ? "bg-primary text-white" : "bg-light"} rounded p-2">
-      ${sender !== "You" ? "<strong>" + sender + ":</strong> " : ""}${text}
-    </div>
-    <small class="text-muted">${time}</small>
-  `;
-
-  chatBox.appendChild(wrapper);
-  chatBox.scrollTop = chatBox.scrollHeight;
-}
-
-// Handle sending new messages
-document.getElementById("messageForm").addEventListener("submit", function(e) {
-  e.preventDefault();
-  const input = document.getElementById("messageText");
-  const text = input.value.trim();
-  if (!text || !currentChat) return;
-
-  const time = "Just now"; // you can format real time here
-  addMessageToChat("You", text, time);
-
-  // Save to chat object
-  if (!chats[currentChat]) chats[currentChat] = [];
-  chats[currentChat].push({ sender: "You", text, time });
-
-  input.value = "";
-});
-</script>
 
 <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container-fluid">
@@ -186,7 +133,7 @@ document.getElementById("messageForm").addEventListener("submit", function(e) {
 
 </div>
 
-<script>
+<!-- <script>
 const messageForm = document.getElementById("messageForm");
 const messageInput = document.getElementById("messageText");
 const chatMessages = document.querySelector(".chat-messages");
@@ -216,6 +163,89 @@ messageForm.addEventListener("submit", function(e) {
     // scroll ned til nyeste besked: chatMessages.scrollTop = chatMessages.scrollHeight;
 
     // ryd input
+    messageInput.value = "";
+});
+    -->
+
+<script>
+const chats = JSON.parse('{{ chats | tojson | safe }}');
+let currentChat = null;
+
+// Åbn en chat
+function openChat(name) {
+  currentChat = name;
+  document.getElementById("startpage").style.display = "none";
+  document.getElementById("chatArea").classList.remove("d-none");
+
+  const chatBox = document.querySelector(".chat-messages");
+  chatBox.innerHTML = "";
+
+  document.querySelectorAll(".list-group-item").forEach(item => {
+    item.classList.remove("active");
+  });
+
+  const contactItem = Array.from(document.querySelectorAll(".list-group-item"))
+    .find(a => a.textContent.includes(name));
+
+  if (contactItem) contactItem.classList.add("active");
+
+  if (chats[name]) {
+    chats[name].forEach(msg => addMessageToChat(msg.sender, msg.text, msg.time));
+  }
+}
+
+function addMessageToChat(sender, text, time) {
+  const chatBox = document.querySelector(".chat-messages");
+  const wrapper = document.createElement("div");
+  wrapper.className = "message mb-3 " + (sender === "You" ? "align-self-end" : "align-self-start");
+
+  wrapper.innerHTML = `
+    <div class="${sender === "You" ? "bg-primary text-white" : "bg-light"} rounded p-2">
+      ${sender !== "You" ? "<strong>" + sender + ":</strong> " : ""}${text}
+    </div>
+    <small class="text-muted">${time}</small>
+  `;
+
+  chatBox.appendChild(wrapper);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Handle sending new messages
+document.getElementById("messageForm").addEventListener("submit", function(e) {
+  e.preventDefault();
+  const input = document.getElementById("messageText");
+  const text = input.value.trim();
+  if (!text || !currentChat) return;
+
+  const time = "Just now"; // you can format real time here
+  addMessageToChat("You", text, time);
+
+  // Save to chat object
+  if (!chats[currentChat]) chats[currentChat] = [];
+  chats[currentChat].push({ sender: "You", text, time });
+
+  input.value = "";
+});
+</script>
+
+<script>
+const messageForm = document.getElementById("messageForm");
+const messageInput = document.getElementById("messageText");
+
+messageForm.addEventListener("submit", function(e) {
+
+    e.preventDefault();
+
+    const msg = messageInput.value.trim();
+    if (!msg || !currentChat) return;
+
+    // brug din eksisterende funktion i stedet for at lave ny besked
+    addMessageToChat("You", msg, "Just now");
+
+    // gem i chats
+    if (!chats[currentChat]) chats[currentChat] = [];
+    chats[currentChat].push({ sender: "You", text: msg, time: "Just now" });
+
     messageInput.value = "";
 });
 </script>
