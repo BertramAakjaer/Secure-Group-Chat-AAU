@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Simple TCP Chat Client</title>
+  </head>
+  <body>
+    <h2>Simple Python TCP Chat</h2>
+
+    <div id="login-section">
+      <label>Username:</label>
+      <input type="text" id="username" placeholder="Enter username" />
+      <label>Server IP:</label>
+      <input
+        type="text"
+        id="server-ip"
+        placeholder="127.0.0.1"
+        value="127.0.0.1"
+      />
+      <button onclick="connectToServer()">Connect</button>
+      <p id="login-status"></p>
+    </div>
+
+    <div id="chat-section" style="display: none">
+      <p>Connected as: <span id="current-user"></span></p>
+      <textarea id="chat-box" rows="15" cols="60" readonly></textarea><br />
+      <input type="text" id="message-input" placeholder="Type a message" />
+      <button onclick="sendChatMessage()">Send</button>
+      <button onclick="disconnectFromServer()">Disconnect</button>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

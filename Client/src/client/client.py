@@ -1,133 +1,89 @@
 import asyncio
 import json
-from aioconsole import ainput
+import websockets
 
 from common.utils import PackageType
 
 class Client:
-    def __init__(self, username, server_ip="127.0.0.1", server_port=8888):
+    def __init__(self, username, server_ip="127.0.0.1", server_port=8888, ws_port=8765):
         self.username = username
-        self.user_id = None
-        
         self.server_ip = server_ip
         self.server_port = server_port
         
+        self.ws_port = ws_port # Local port for the UI browser to connect to
+        self.ui_clients = set() # Keeps track of open browser tabs
+        
         self.reader = None
         self.writer = None
-        
         self.running = True
 
-    async def connect(self): # Opretter en connection til serveren via asyncio
+    async def connect_tcp(self):
+        """Connects to the main chat server via TCP."""
         try:
             self.reader, self.writer = await asyncio.open_connection(self.server_ip, self.server_port)
-            
-            msg = json.dumps({"username": self.username}) + "\n" # Laver til json
-            self.writer.write(msg.encode()) # Laver til rå bytes
-            await self.writer.drain() # Venter på at "write" er færdig
-            
-            print(f"Connected as {self.username}")
+            msg = json.dumps({"username": self.username}) + "\n"
+            self.writer.write(msg.encode())
+            await self.writer.drain()
+            print(f"Connected to Chat Server as {self.username}")
             return True
-        
-        except Exception as e: # Hvis connection fejler
-            print(f"Connection failed: {e}")
+        except Exception as e:
+            print(f"TCP Connection failed: {e}")
             return False
 
-
-    async def start(self): # Kører selve logikken
-        if not await self.connect(): # Opretter connection og tjekker om det var succesfuldt
-            return
-
-        # Kører både den der lytter til inkommende beskeder
-        # samt den del der lader en bruger inskrive beskeder
-        await asyncio.gather(
-            self.listen_for_messages(),
-            self.handle_user_input()
-        )
-
-
-    async def listen_for_messages(self): # lytter efter inkommende pakker
-        if self.reader:
-            while self.running:
-                try:
-                    data = await self.reader.readline() # Hvis intet data kan læses er forbindelsen til serven stoppet
-                    if not data:
-                        print("\nDisconnected from server !!")
-                        self.running = False
-                        break
-                    
-                    message = json.loads(data.decode()) # Tager bytes læst fra serveren om omdanner til python string og derefter fra string(json) til dict.
-                    self.process_incoming_message(message)
-                    
-                except Exception as e:
-                    print(f"Network error: {e}")
+    async def listen_tcp(self):
+        """Listens for TCP messages from the server and forwards them to the Web UI."""
+        if not self.reader: return
+        
+        while self.running:
+            try:
+                data = await self.reader.readline()
+                if not data:
+                    print("Disconnected from server.")
                     self.running = False
                     break
-
-
-    def process_incoming_message(self, msg):
-        try:
-            msg_type = msg.get("type")
-            sender = msg.get("sender")
-            content = msg.get("content")
-        
-            print("\r\033[K", end="", flush=True)
-                        
-            match msg_type:
-                case PackageType.WELCOME:
-                    print(f"[MLS] WELCOME received from {sender}. Joining group...")
-                    # Træet skal bygges ud fra her med en "keypackage"
                 
-                case PackageType.COMMIT:
-                    print(f"[MLS] Group Update (Commit) from {sender}.")
-                    # Ændring i epoch og selve træet
-                    
-                case PackageType.MSG:
-                    # Find en anden måde at vise teksten (kan gemmes i en liste eller ligende)
-                    print(f"[{sender}]: {content}")
-            
-            print(">> ", end="", flush=True)
-        
-        except Exception as e:
-            print(f"\nError processing message: {e}")
+                # Forward the exact JSON payload to all connected browser tabs
+                message_json = data.decode()
+                websockets.broadcast(self.ui_clients, message_json)
+                
+            except Exception as e:
+                print(f"Network error: {e}")
+                self.running = False
+                break
 
+    async def handle_ws_client(self, websocket):
+        """Handles incoming messages from the Browser UI."""
+        self.ui_clients.add(websocket)
+        try:
+            async for content in websocket:
+                # Browser sends plain text; we format it for TCP here.
+                await self.process_ui_command(content)
+        finally:
+            self.ui_clients.remove(websocket)
 
-    async def handle_user_input(self):
-        while self.running:
-            msg_content = await ainput(">> ")
-            if not msg_content: continue
-            
-            await self.process_user_command(msg_content)
-            
-
-    async def process_user_command(self, content):
+    async def process_ui_command(self, content):
+        """Parses UI input and sends via TCP."""
         payload = {}
-
-        if content.startswith("/add"): # adding a new user
+        if content.startswith("/add"):
             parts = content.split(" ")
             if len(parts) > 1:
                 target = parts[1]
-                payload = {
-                    "type": PackageType.WELCOME,
-                    "dest": target,
-                    "content": f"KeyPackage-For-{target}"
-                }
-            else:
-                print("Usage: /add <userid>")
-                return
-
-        elif content == "/exit": # Exiting the group
-            self.running = False
-            return
-
+                payload = {"type": PackageType.WELCOME, "dest": target, "content": f"KeyPackage-For-{target}"}
         else:
-            # Regular chat message
-            payload = {
-                "type": "MSG",
-                "dest": "all",
-                "content": content
-            }
+            payload = {"type": "MSG", "dest": "all", "content": content}
 
-        # Send
-        if self.writer:
+        if self.writer and payload:
             self.writer.write((json.dumps(payload) + "\n").encode())
             await self.writer.drain()
+
+    async def start(self):
+        """Starts both the TCP connection and the local UI WebSocket server."""
+        if not await self.connect_tcp():
+            return
+
+        print(f"Starting UI bridge on ws://127.0.0.1:{self.ws_port}...")
+        
+        # Start the local WebSocket server to communicate with the browser
+        async with websockets.serve(self.handle_ws_client, "127.0.0.1", self.ws_port):
+            # Block and listen to the main TCP connection
+            await self.listen_tcp()
