@@ -10,29 +10,7 @@
 </head>
 <body>
 
-<style>
-html, body {
-    height: 100%;
-}
-
-.chat-container {
-    height: calc(100vh - 56px); /* 56px = navbar height */
-}
-
-.chat-messages {
-    flex: 1;
-    overflow-y: auto;
-}
-.col-md-3 {
-    position: relative;
-}
-.plus-icon {
-    position: absolute;
-    bottom: 10px;
-    right: 20px;
-}
-
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
 <script>
 /* Så man kan klikke på dem */
