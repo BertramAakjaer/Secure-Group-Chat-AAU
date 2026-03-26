@@ -1,0 +1,47 @@
+<!-- ================================= -->
+<!-- JOIN SIDE FOR GRUPPECHAT -->
+<!-- ================================= -->
+
+<!-- Brugeren kan indtaste brugernavn og chat-id for at deltage i en eksisterende chat -->
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <title>Join chat</title>
+</head>
+<body>
+    <h1>Join gruppechat</h1>
+
+
+    <!-- ================================= -->
+    <!-- VISER FEJLMEDDELELSE (HVIS NOGEN) -->
+    <!-- ================================= -->
+
+    {% if error %}
+        <p style="color:red;">{{ error }}</p>
+    {% endif %}
+
+    <!-- ================================= -->
+    <!-- FORM TIL AT JOINE CHAT -->
+    <!-- ================================= -->
+
+    <form method="POST">
+        <label>Brugernavn:</label>
+        <input type="text" name="username" required>
+        <br><br>
+
+        <label>Chat-id:</label>
+        <input type="text" name="chat_id" required>
+        <br><br>
+
+        <button type="submit">Join</button>
+    </form>
+
+    <br>
+    
+    <!-- ================================= -->
+    <!-- TILBAGE TIL FORSIDE -->
+    <!-- ================================= -->
+    <a href="/">Tilbage</a>
+</body>
+</html>

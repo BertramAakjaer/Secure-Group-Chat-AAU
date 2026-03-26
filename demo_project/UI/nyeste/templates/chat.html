@@ -1,0 +1,66 @@
+<!-- ================================= -->
+<!-- CHATVINDUE FOR EN GRUPPECHAT -->
+<!-- ================================= -->
+
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+
+    <!-- Titel på siden (viser chat-id) -->
+    <title>Chat {{ chat_id }}</title>
+
+    <!-- CSS stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style2.css') }}">
+</head>
+<body>
+
+    <!-- ================================= -->
+    <!-- SIDEBAR MED GRUPPEINFORMATION -->
+    <!-- ================================= -->
+
+    <div class="sidebar">
+        <h2>Gruppechat</h2>
+        <!-- Viser chat-id -->
+        <p><strong>Gruppe-id:</strong> {{ chat_id }}</p>
+        <p>Del gruppe-id'et med de andre.</p>
+        
+        <!-- Liste over medlemmer i chatten -->
+        <h3>Medlemmer</h3>
+        <ul>
+            {% for member in members %}
+                <li>{{ member }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- ================================= -->
+    <!-- CHATOMRÅDE -->
+    <!-- ================================= -->
+    <div class="chat-container">
+        <div style="padding: 20px; border-bottom: 1px solid #faf7f7;">
+            <h2>Chat for gruppe {{ chat_id }}</h2>
+        </div>
+        <!-- Her vises beskeder dynamisk via JavaScript -->
+        <div class="messages" id="messages"></div>
+
+        <!-- ================================= -->
+        <!-- INPUTFELT OG SEND-KNAP -->
+        <!-- ================================= -->
+        <div class="input-area">
+            <input type="text" id="messageInput" placeholder="Skriv besked...">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <!-- ================================= -->
+    <!-- SEND DATA FRA FLASK TIL JAVASCRIPT -->
+    <!-- ================================= -->
+    <script>
+     const chatId = "{{ chat_id }}";
+    </script>
+    
+    <!-- JavaScript fil til chat-funktionalitet -->
+    <script src="{{ url_for('static', filename='chat.js') }}"></script>
+</body>
+</html>
