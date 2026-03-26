@@ -62,5 +62,30 @@
     
     <!-- JavaScript fil til chat-funktionalitet -->
     <script src="{{ url_for('static', filename='chat.js') }}"></script>
+
+    <script>
+
+    function fetchMembers() {
+    fetch(`/get_members/${chatId}`)
+        .then(res => res.json())
+        .then(data => {
+            const ul = document.querySelector(".sidebar ul");
+            ul.innerHTML = "";
+
+            data.forEach(member => {
+                const li = document.createElement("li");
+                li.textContent = member;
+                ul.appendChild(li);
+            });
+        });
+    }
+
+    // start med det samme
+    fetchMembers();
+
+    // opdater hver 2 sek
+    setInterval(fetchMembers, 2000);
+    </script>
+
 </body>
 </html>

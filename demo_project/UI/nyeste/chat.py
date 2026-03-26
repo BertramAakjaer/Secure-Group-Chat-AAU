@@ -123,6 +123,18 @@ def chat_room(chat_id):
     )
 
 # =================================
+# OPDATER MEMBERS
+# =================================
+
+@app.route("/get_members/<chat_id>")
+def get_members(chat_id):
+    if chat_id not in chats:
+        return jsonify([])
+    
+    return jsonify(chats[chat_id]["members"])
+
+
+# =================================
 # SEND BESKED
 # =================================
 
