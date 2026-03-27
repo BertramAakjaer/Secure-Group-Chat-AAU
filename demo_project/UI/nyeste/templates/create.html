@@ -7,32 +7,40 @@
 <html lang="da">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Opret chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <h1>Opret gruppechat</h1>
 
-    <!-- ================================= -->
-    <!-- VISER FEJLMEDDELELSE (HVIS NOGEN) -->
-    <!-- ================================= -->
-    {% if error %}
-        <p style="color:red;">{{ error }}</p>
-    {% endif %}
+<body class="create"> <div class="main-container">
+        <h1>Opret gruppechat</h1>
 
-    <!-- ================================= -->
-    <!-- FORM TIL AT OPRETTE CHAT -->
-    <!-- ================================= -->
-    <form method="POST">
-        <label>Brugernavn:</label>
-        <input type="text" name="username" required>
-        <button type="submit">Opret</button>
-    </form>
+        <!-- ================================= -->
+        <!-- VISER FEJLMEDDELELSE (HVIS NOGEN) -->
+        <!-- ================================= -->
+        {% if error %}
+            <p class="error-msg">{{ error }}</p>
+        {% endif %}
 
-    <br>
+        <!-- ================================= -->
+        <!-- FORM TIL AT OPRETTE CHAT -->
+        <!-- ================================= -->
+        <form method="POST">
+            <div class="input-group">
+                <label for="username">Brugernavn:</label>
+                <input type="text" id="username" name="username" placeholder="Indtast navn..." required>
+            </div>
+            
+            <button type="submit" class="btn-primary">Opret</button>
+        </form>
 
-    <!-- ================================= -->
-    <!-- TILBAGE TIL FORSIDE -->
-    <!-- ================================= -->
-    <a href="/">Tilbage</a>
+        <!--<br>-->
+
+        <!-- ================================= -->
+        <!-- TILBAGE TIL FORSIDE -->
+        <!-- ================================= -->
+        <a href="/" class="btn-secondary">Tilbage</a>
+    </div>
+
 </body>
 </html>

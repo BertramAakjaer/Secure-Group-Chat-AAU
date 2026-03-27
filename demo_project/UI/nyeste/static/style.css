@@ -107,3 +107,92 @@ body.forside {
 .btn-join {
     background-color: #7eb3f3;
 }
+
+
+/* ===== CREATE ACCOUNT STYLING ===== */
+
+/* Vi bruger .create klassen her for at adskille den fra chatten */
+body.create {
+    background-color: #f4f7f9; /* Den lyse baggrund fra dit billede */
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+.main-container {
+    text-align: center;
+    width: 100%;
+    max-width: 350px;
+}
+
+/* Sørger for at h1 inde i body.create ser rigtig ud */
+body.create h1 {
+    color: #4a5a71; /* Den mørke farve fra "Velkommen" */
+    font-size: 48px;
+    margin-bottom: 40px;
+    margin-top: 0;
+}
+
+.input-group {
+    margin-bottom: 20px;
+    text-align: left;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    color: #4a5a71;
+    font-weight: bold;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    box-sizing: border-box;
+}
+
+/* Den mørkeblå knap (Create Group) */
+.btn-primary {
+    background-color: #7199e8;
+    color: white;
+    border: none;
+    padding: 15px;
+    width: 100%;
+    border-radius: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 15px;
+    transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+    background-color: #5a85d6;
+}
+
+/* Den lyseblå knap (Join Group / Tilbage) */
+.btn-secondary {
+    display: block;
+    background-color: #87b9f5;
+    color: white;
+    text-decoration: none;
+    padding: 15px;
+    border-radius: 15px;
+    font-size: 18px;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #70a8f0;
+}
+
+.error-msg {
+    color: #ff4d4d;
+    margin-bottom: 15px;
+}
