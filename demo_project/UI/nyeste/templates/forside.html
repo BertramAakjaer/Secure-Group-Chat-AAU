@@ -4,11 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <title>Gruppechat - Velkommen til!</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-    <h1>Gruppechat</h1>
-    <a href="/create">Opret gruppe</a>
-    <br><br>
-    <a href="/join">Join gruppe</a>
+<body class="forside">
+    <div class="welcome-container">
+        <h1 class="welcome-title">Velkommen</h1>
+        <div class="button-group">
+            <a href="/create" class="btn btn-create">Create Group</a>
+            <a href="/join" class="btn btn-join">Join Group</a>
+        </div>
+    </div>
 </body>
 </html>
