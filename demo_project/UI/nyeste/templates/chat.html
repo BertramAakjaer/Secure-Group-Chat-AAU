@@ -20,13 +20,13 @@
     <!-- ================================= -->
 
     <div class="sidebar">
-        <h2>Gruppechat</h2>
+        <h2>Groupchat</h2>
         <!-- Viser chat-id -->
-        <p><strong>Gruppe-id:</strong> {{ chat_id }}</p>
-        <p>Del gruppe-id'et med de andre.</p>
+        <p><strong>Group ID:</strong> {{ chat_id }}</p>
+        <p>Share the group ID with others.</p>
         
         <!-- Liste over medlemmer i chatten -->
-        <h3>Medlemmer</h3>
+        <h3>Members</h3>
         <ul>
             {% for member in members %}
                 <li>{{ member }}</li>
@@ -39,7 +39,7 @@
     <!-- ================================= -->
     <div class="chat-container">
         <div style="padding: 20px; border-bottom: 1px solid #faf7f7;">
-            <h2>Chat for gruppe {{ chat_id }}</h2>
+            <h2>Chat for group {{ chat_id }}</h2>
         </div>
         <!-- Her vises beskeder dynamisk via JavaScript -->
         <div class="messages" id="messages"></div>
@@ -48,7 +48,7 @@
         <!-- INPUTFELT OG SEND-KNAP -->
         <!-- ================================= -->
         <div class="input-area">
-            <input type="text" id="messageInput" placeholder="Skriv besked...">
+            <input type="text" id="messageInput" placeholder="Type a message...">
             <button onclick="sendMessage()">Send</button>
         </div>
     </div>

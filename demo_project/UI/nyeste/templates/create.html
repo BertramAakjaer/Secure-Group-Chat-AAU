@@ -8,12 +8,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Opret chat</title>
+    <title>Create Chat</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 
 <body class="create"> <div class="main-container">
-        <h1>Opret gruppechat</h1>
+        <h1>Create Groupchat</h1>
 
         <!-- ================================= -->
         <!-- VISER FEJLMEDDELELSE (HVIS NOGEN) -->
@@ -27,11 +27,11 @@
         <!-- ================================= -->
         <form method="POST">
             <div class="input-group">
-                <label for="username">Brugernavn:</label>
-                <input type="text" id="username" name="username" placeholder="Indtast navn..." required>
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter your name..." required>
             </div>
             
-            <button type="submit" class="btn-primary">Opret</button>
+            <button type="submit" class="btn-primary">Create</button>
         </form>
 
         <!--<br>-->
@@ -39,7 +39,7 @@
         <!-- ================================= -->
         <!-- TILBAGE TIL FORSIDE -->
         <!-- ================================= -->
-        <a href="/" class="btn-secondary">Tilbage</a>
+        <a href="/" class="btn-secondary">Back to frontpage</a>
     </div>
 
 </body>
