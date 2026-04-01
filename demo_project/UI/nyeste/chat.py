@@ -111,8 +111,9 @@ def chat_room(chat_id):
     username = session.get("username")
     session_chat_id = session.get("chat_id")
 
-    # Kontrollerer om brugeren har adgang til chatten
-    if not username or session_chat_id != chat_id or chat_id not in chats:
+    # Kontrollerer om brugeren stadig er medlem
+    if not username or session_chat_id != chat_id or chat_id not in chats or username not in chats[chat_id]["members"]:
+        session.clear()
         return redirect(url_for("join_chat"))
 
     return render_template(
@@ -170,6 +171,34 @@ def get_messages(chat_id):
         return jsonify([])
 
     return jsonify(chats[chat_id]["messages"])
+
+# =================================
+# FJERN BRUGER
+# =================================
+
+@app.route("/kick_user/<chat_id>/<username_to_kick>", methods=["POST"])
+def kick_user(chat_id, username_to_kick):
+    current_user = session.get("username")
+    
+    if chat_id not in chats:
+        return jsonify({"success": False, "error": "Chat findes ikke"}), 404
+
+    # Hent admin fra listen og rens for mellemrum
+    admin_in_list = chats[chat_id]["members"][0].strip()
+    # Rens dit eget navn fra sessionen
+    me = current_user.strip() if current_user else ""
+
+    # DEBUG check i din terminal (den sorte boks)
+    print(f"DEBUG: Admin er '{admin_in_list}', Du er '{me}'")
+
+    if admin_in_list != me:
+        return jsonify({"success": False, "error": f"Kun admin ({admin_in_list}) kan fjerne brugere. Du er logget ind som ({me})"}), 403
+
+    if username_to_kick in chats[chat_id]["members"]:
+        chats[chat_id]["members"].remove(username_to_kick)
+        return jsonify({"success": True})
+
+    return jsonify({"success": False, "error": "Bruger ikke fundet"}), 404
 
 # =================================
 # START SERVER

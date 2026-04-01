@@ -196,3 +196,23 @@ input[type="text"] {
     color: #ff4d4d;
     margin-bottom: 15px;
 }
+
+/* ===== JOIN ACCOUNT STYLING ===== */
+
+body.join {
+    background-color: #f4f7f9;
+    font-family: 'Arial', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+}
+
+/* Overskriften på join-siden matcher create-siden */
+body.join h1 {
+    color: #4a5a71;
+    font-size: 48px;
+    margin-bottom: 40px;
+    margin-top: 0;
+}
