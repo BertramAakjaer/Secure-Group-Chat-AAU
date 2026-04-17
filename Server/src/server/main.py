@@ -1,5 +1,5 @@
 import asyncio
-from server.server import Server
+from server.server import start_server
 
 import asyncio, argparse
 
@@ -8,7 +8,7 @@ def main():
 
     # Valgfrie "flag"
     parser.add_argument("--local", action="store_true", help="Run on 127.0.0.1 if set, otherwise 0.0.0.0")
-    parser.add_argument("-p", "--port", type=int, default=8888, help="Optional port (default: 8888)")
+    parser.add_argument("-p", "--port", type=int, default=5555, help="Optional port (default: 5555)")
 
     args = parser.parse_args()
     
@@ -16,8 +16,4 @@ def main():
     host_port = args.port
 
     # Initalisere og kører server objektet
-    service = Server(ip=host_ip, port=host_port)
-    try:
-        asyncio.run(service.start())
-    except KeyboardInterrupt:
-        pass
+    start_server(ip=host_ip, port=host_port)

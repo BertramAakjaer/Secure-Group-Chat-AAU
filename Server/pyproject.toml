@@ -6,9 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "server"
 version = "2025.0.1"
 requires-python = ">=3.13"
-dependencies = [
-    "common",
-]
+dependencies = ["common"]
 
 [project.scripts]
 server = "server.main:main"
