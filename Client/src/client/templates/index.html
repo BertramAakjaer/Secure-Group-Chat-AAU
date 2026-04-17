@@ -1,10 +1,10 @@
 <!doctype html>
 <html>
   <head>
-    <title>Simple TCP Chat Client</title>
+    <title>Secure Group Chat Client</title>
   </head>
   <body>
-    <h2>Simple Python TCP Chat</h2>
+    <h1>TCP Communication Client</h1>
 
     <div id="user-info" style="display: none">
       <p>
@@ -23,30 +23,24 @@
         value="127.0.0.1"
       />
       <button onclick="connectToServer()">Connect</button>
-      <p id="login-status"></p>
-    </div>
-
-    <div id="group-section" style="display: none">
-      <h3>Group Chats</h3>
-      <select id="group-select">
-        <option value="">Select a chat</option>
-      </select>
-      <br />
-      <label>Group Name:</label>
-      <input type="text" id="group-name" placeholder="Enter group name" />
-      <button onclick="createGroup()">Create Group</button>
-      <br />
-      <label>Add User UUID:</label>
-      <input type="text" id="add-uuid" placeholder="Enter UUID" />
-      <button onclick="addUser()">Add User</button>
+      <p id="login-status" style="color: red"></p>
     </div>
 
     <div id="chat-section" style="display: none">
-      <p>Current Chat: <span id="current-chat"></span></p>
-      <textarea id="chat-box" rows="15" cols="60" readonly></textarea><br />
-      <input type="text" id="message-input" placeholder="Type a message" />
-      <button onclick="sendChatMessage()">Send</button>
-      <button onclick="disconnectFromServer()">Disconnect</button>
+      <h2>Connected to {Group_name}[{Group_UUID}]</h2>
+
+      <textarea id="chatbox" rows="20" cols="60" readonly></textarea>
+      <br /><br />
+
+      <!-- Input and Send mechanisms -->
+      <input
+        type="text"
+        id="messageInput"
+        placeholder="Type a message to send..."
+        size="50"
+      />
+      <button onclick="sendMessage()">Send</button>
+      <br /><br />
     </div>
 
     <script src="/static/script.js"></script>
