@@ -16,6 +16,8 @@ def gen_random_gid(length=6) -> str:
     string_val = f"{time.time()}{random.random()}" 
     return hashlib.md5(string_val.encode()).hexdigest()[:length]
 
+
+
 def to_json(data: dict) -> str:
     json_output = json.dumps(data, indent=4)
     return json_output

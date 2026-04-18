@@ -2,6 +2,9 @@ from flask import Flask, render_template, request, jsonify
 import socket, threading, json, os, time
 
 from common.utils import PackageType
+from common.json_pcks import from_json
+from common.config import CLIENT_BUFFER
+
 import client.modules.data_structs as data_structs
 
 
@@ -10,8 +13,20 @@ app = Flask(__name__)
 client_socket = None
 tcp_listening_thread = None
 
-TCP_BUFFER = 1024
 session = data_structs.SessionInfo()
+
+
+def recv_data(sock):
+    try:
+        data = sock.recv(CLIENT_BUFFER)
+        if not data:
+            session.messages.append("System: Connection closed by server.")
+        
+        # Return Message
+        return data.decode('utf-8')
+    except Exception as e:
+        if session.is_connected:
+            session.messages.append(f"System Error: {str(e)}")
 
 
 # Created in a new thread when connection is made for the server
@@ -19,17 +34,10 @@ def tcp_listener(sock):
     global client_socket
     
     while session.is_connected:
-        try:
-            data = sock.recv(1024)
-            if not data:
-                session.messages.append("System: Connection closed by server.")
-                break
-            
-            # Append incoming server message
-            session.messages.append(f"Server/Group: {data.decode('utf-8')}")
-        except Exception as e:
-            if session.is_connected:
-                session.messages.append(f"System Error: {str(e)}")
+        data = recv_data(sock)
+        if data:
+            session.messages.append(data)
+        else:
             break
             
     # Cleanup state when the connection drops
@@ -73,6 +81,15 @@ def connect():
         
         # Update session info and saving socket
         client_socket = sock
+        
+        while True:
+            data = recv_data(sock)
+            if data:
+                json = from_json(data)
+                if json.get("Type") == PackageType.NEW_UUID.value:
+                    session.uuid = json.get("Payload", {}).get("UUID", "unknown")
+                    break
+        
         session.is_connected = True
         session.messages = [f"System: Connected to {session.server_ip} as {session.username}"]
         
@@ -82,7 +99,7 @@ def connect():
         
         return jsonify({
             "status": "success", 
-            "uuid": "uuid not working yet",
+            "uuid": session.uuid,
             "username": session.username
         })
         

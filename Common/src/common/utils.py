@@ -1,24 +1,31 @@
-#
-#   Enum for vores package typer
-#
 from enum import Enum
+
+from common.config import GUID_LEN, UUID_LEN
+
 class PackageType(str, Enum):
-    # MLS Standards
+    # Kun fra admin/Server
+    COMMIT = "COMMIT" # Vedtaget Ændring
     WELCOME = "WELCOME" # Tilføjning af ny bruger
-    COMMIT = "COMMIT" # Opdaterer gruppe nøgler
-    PROPOSAL = "PROPOSAL" # Forandring for gruppe træet
+    NEW_UUID = "NEW_UUID" # Server sender ny UUID
     
-    # Ikke standard, men bruges til at sende
-    MSG = "MSG" # Standard encrypted chat message
+    # Kan sendes af alle (skal accepteres af admin/Server)
+    PROPOSAL = "PROPOSAL" # Tilføje/Fjerne Bruger
+    
+    # Kan sendes af alle
+    MSG = "MSG" # Alm besked
     
 
-#
-#   Funktion til at generer tilfældige id til vores brugere
-#
+
+# Funktioner til at generer tilfældige id til vores brugere
 import hashlib, time, random
-def gen_random_uid(lenght=10) -> str: 
-    
-    str = f"{time.time()}{random.random()}" # Opretter en streng af den nuværende tid i ms + en tilfældig kommatal
-    hash_id = hashlib.md5(str.encode()).hexdigest()[:lenght] # Laver strengen om til en hash med en given længde
-    
-    return hash_id
+
+def random_user_uid(lenght=UUID_LEN) -> str: 
+    str = f"{time.time()}{random.random()}"
+    hash = hashlib.md5(str.encode()).hexdigest()[:lenght]
+    return hash
+
+
+def random_group_uid(lenght=GUID_LEN) -> str: 
+    str = f"{time.time()}{random.random()}"
+    hash = hashlib.md5(str.encode()).hexdigest()[:lenght]
+    return hash
