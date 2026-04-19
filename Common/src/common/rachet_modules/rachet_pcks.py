@@ -10,7 +10,7 @@ class RachetTypes(str, Enum):
 # Packet only handeled by rachet module - - - - - -
 
 def from_rachet_packet(packet):
-    base64_data =   base64.b64decode(packet)
+    base64_data =   base64.b64decode(packet.encode('utf-8'))
     json_data =     base64_data.decode('utf-8')
     dict_data =     json.loads(json_data)
     
@@ -20,7 +20,7 @@ def from_rachet_packet(packet):
 def _to_rachet_packet(packet):
     json_output =   json.dumps(packet, indent=4)
     bytes =         json_output.encode('utf-8')
-    base64_output = base64.b64encode(bytes)
+    base64_output = base64.b64encode(bytes).decode('utf-8')
     
     return base64_output
 

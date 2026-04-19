@@ -1,4 +1,4 @@
-from common.json_pcks import group_created_packet, join_requested_packet, join_accepted_packet, join_denied_packet, group_msg_packet
+from common.json_pcks import group_created_packet, join_requested_packet, join_accepted_packet, join_denied_packet, group_msg_packet, join_request_to_admin_packet, commit_packet
 from common.utils import random_group_uid
 
 # groups: group_uuid -> {'admin': uuid, 'name': str, 'members': set(uuids), 'pending': set(uuids)}
@@ -50,7 +50,7 @@ def create_group(group_name, admin_uuid):
 
 
 
-def request_join_group(group_uuid, user_uuid):
+def request_join_group(group_uuid, user_uuid, pub_key_b64):
     
     # If group is not found = just insta deny
     if group_uuid not in groups:
@@ -70,14 +70,14 @@ def request_join_group(group_uuid, user_uuid):
     admin_uuid = groups[group_uuid]['admin']
     
     if admin_uuid in clients:
-        msg_packet = group_msg_packet(f"User {clients[user_uuid][3]} ({user_uuid}) requested to join the group.", "SYSTEM", group_uuid)
-        _send_to_uuid(admin_uuid, msg_packet)
+        request_join_packet = join_request_to_admin_packet(pub_key_b64, user_uuid, clients[user_uuid][3])
+        _send_to_uuid(admin_uuid, request_join_packet)
     
     print(f"[JOIN REQUEST] {user_uuid} requested to join {group_uuid}")
 
 
 
-def accept_join(group_uuid, target_uuid, admin_uuid):
+def accept_join(group_uuid, target_uuid, admin_uuid, welcome_data):
     # If group exists and admin is actual admin
     if group_uuid not in groups or groups[group_uuid]['admin'] != admin_uuid:
         return False
@@ -89,7 +89,7 @@ def accept_join(group_uuid, target_uuid, admin_uuid):
         clients[target_uuid] = (clients[target_uuid][0], clients[target_uuid][1], group_uuid, clients[target_uuid][3])
         
         # Send accept to user
-        packet = join_accepted_packet(group_uuid, groups[group_uuid]['name'])
+        packet = join_accepted_packet(group_uuid, groups[group_uuid]['name'], welcome_data, target_uuid)
         _send_to_uuid(target_uuid, packet)
         
         # Send join message to group
@@ -165,9 +165,6 @@ def handle_admin_command(message, sender_uuid):
     if not sender_group:
         return False
     
-    if command == "!accept":
-        accept_join(sender_group, target_uuid, sender_uuid)
-        return True
     elif command == "!deny":
         deny_join(sender_group, target_uuid, sender_uuid)
         return True
@@ -186,3 +183,20 @@ def remove_client(uuid):
             elif uuid in groups[group_uuid]['pending']:
                 groups[group_uuid]['pending'].remove(uuid)
         del clients[uuid]
+        
+        
+        
+# Rachet commit handling - - - -
+def handle_commit(guid, commit_data, sender_uuid):
+    for group_uuid, group_data in groups.items():
+        if guid == group_uuid:
+            admin = group_data['admin']
+            if sender_uuid != admin:
+                return
+            
+            for member_uuid in group_data['members']:
+                if member_uuid == sender_uuid:
+                    continue
+                if member_uuid in clients and clients[member_uuid][2] == group_uuid:
+                    packet = commit_packet(guid, commit_data)
+                    _send_to_uuid(member_uuid, packet)

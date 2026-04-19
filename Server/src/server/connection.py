@@ -42,7 +42,21 @@ def handle_client(conn, addr, client_uuid):
                         case PackageType.JOIN_GROUP.value:
                             group_uuid = msg_payload.get("group_uuid")
                             user_uuid = msg_payload.get("user_uuid")
-                            group.request_join_group(group_uuid, user_uuid)
+                            pub_key_b64 = msg_payload.get("pub_key_b64")
+                            group.request_join_group(group_uuid, user_uuid, pub_key_b64)
+                        
+                        case PackageType.JOIN_ACCEPTED.value:
+                            group_uuid = msg_payload.get("group_uuid")
+                            group_name = msg_payload.get("group_name")
+                            welcome_data = msg_payload.get("welcome_data")
+                            accepted_uuid = msg_payload.get("accepted_uuid")
+                            
+                            group.accept_join(group_uuid, accepted_uuid, client_uuid, welcome_data)
+                        
+                        case PackageType.COMMIT.value:
+                            guid = msg_payload.get("guid")
+                            commit_data = msg_payload.get("commit_data")
+                            group.handle_commit(guid, commit_data, client_uuid)
                         
                         case PackageType.USER_INFO.value:
                             uuid = msg_payload.get("uuid")

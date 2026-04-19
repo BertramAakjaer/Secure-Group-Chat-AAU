@@ -56,12 +56,13 @@ def create_group_packet(group_name, admin_uuid):
     return _to_json(packet)
 
 
-def join_group_packet(group_uuid, user_uuid):
+def join_group_packet(group_uuid, user_uuid, pub_key_b64):
     packet = {
         "Type": PackageType.JOIN_GROUP.value,
         "Payload": {
             "group_uuid": group_uuid,
-            "user_uuid": user_uuid
+            "user_uuid": user_uuid,
+            "pub_key_b64": pub_key_b64
         },
     }
     return _to_json(packet)
@@ -78,20 +79,33 @@ def group_created_packet(group_uuid, group_name): # From server to admin saying 
     return _to_json(packet)
 
 
-def join_requested_packet(): # Send from user to server to request join
+def join_requested_packet(): # Send from server to user that their request is waiting for approval
     packet = {
         "Type": PackageType.JOIN_REQUESTED.value,
         "Payload": {},
     }
     return _to_json(packet)
 
+def join_request_to_admin_packet(pub_key_b64, user_uuid, username): # Send from server to admin about a new join request
+    packet = {
+        "Type": PackageType.JOIN_REQUEST_TO_ADMIN.value,
+        "Payload": {
+            "pub_key_b64": pub_key_b64,
+            "user_uuid": user_uuid,
+            "username": username
+        },
+    }
+    return _to_json(packet)
 
-def join_accepted_packet(group_uuid, group_name): # From server to user after accept
+
+def join_accepted_packet(group_uuid, group_name, welcome_data, accepted_uuid): # From admin to user after accept
     packet = {
         "Type": PackageType.JOIN_ACCEPTED.value,
         "Payload": {
             "group_uuid": group_uuid,
-            "group_name": group_name
+            "group_name": group_name,
+            "welcome_data": welcome_data,
+            "accepted_uuid": accepted_uuid
         },
     }
     return _to_json(packet)
@@ -128,14 +142,14 @@ def group_msg_packet(message, sender_uuid, group_uuid, username=None):
 
 
 
-# Rachet packets
+# Rachet packets - - - - -
 
-def rachet_info_packet(guid, rachet_data):
+def commit_packet(guid, commit_data):
     packet = {
-        "Type": PackageType.RACHET.value,
+        "Type": PackageType.COMMIT.value,
         "Payload": {
             "guid": guid,
-            "rachet_data": rachet_data
+            "commit_data": commit_data,
         },
     }
     return _to_json(packet)

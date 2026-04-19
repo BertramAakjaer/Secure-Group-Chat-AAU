@@ -14,16 +14,17 @@ class PackageType(str, Enum):
     USER_INFO = "USER_INFO" # Client sends username
     
     # Sendes til admin
-    JOIN_REQUESTED = "JOIN_REQUESTED"
+    JOIN_REQUEST_TO_ADMIN = "JOIN_REQUEST_TO_ADMIN" # That a user want to join
     GROUP_CREATED = "GROUP_CREATED" # Group created successfully
     
     # Sendt til users
     JOIN_DENIED = "JOIN_DENIED"
     JOIN_ACCEPTED = "JOIN_ACCEPTED"
+    JOIN_REQUESTED = "JOIN_REQUESTED"
     MSG = "MSG" # Alm besked
     
     # Rachet specific
-    RACHET = "RACHET" # Rachet Packet
+    COMMIT = "COMMIT"
 
 
 # Funktioner til at generer tilfældige id til vores brugere

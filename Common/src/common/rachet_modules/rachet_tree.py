@@ -466,7 +466,3 @@ def main():
         key_match = users[name].get_root_key() == final_key
         epoch = users[name].epoch
         print(f"[{name.split('_')[0].capitalize()}] Epoch: {epoch}, Key matches: {key_match}")
-
-
-if __name__ == "__main__":
-    main()

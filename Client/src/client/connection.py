@@ -1,8 +1,11 @@
-import socket, threading, json, time
+import base64
+import socket, threading, json
 
 from common.utils import PackageType
-from common.json_pcks import from_json, user_info_packet, group_msg_packet, create_group_packet, join_group_packet
+from common.json_pcks import from_json, user_info_packet, group_msg_packet, create_group_packet, join_group_packet, join_accepted_packet, commit_packet
 from common.config import CLIENT_BUFFER
+from common.rachet_modules.crypto import CryptoUtils
+from common.rachet_modules.rachet_tree import RatchetGroup
 
 import client.data_structs as data_structs
 
@@ -10,6 +13,7 @@ import client.data_structs as data_structs
 client_socket = None
 tcp_listening_thread = None
 
+priv_key, pub_key = CryptoUtils.generate_keypair()
 session = data_structs.SessionInfo()
 
 # Modtagning a TCP data
@@ -61,45 +65,6 @@ def tcp_listener(sock):
             pass
     client_socket = None
 
-
-# Checks msg header and chooses how to handle it
-def handle_incoming_message(data):
-    try:
-        json_data = from_json(data)
-        msg_type = json_data.get("Type")
-        payload = json_data.get("Payload", {})
-        
-        match msg_type:
-            case PackageType.GROUP_CREATED.value:
-                session.group_uuid = payload.get("group_uuid")
-                session.group_name = payload.get("group_name")
-                session.messages.append(f"System: Group '{session.group_name}' created with ID {session.group_uuid}")
-                session.is_waiting = False
-            
-            case PackageType.JOIN_REQUESTED.value:
-                session.messages.append("System: Join request sent. Waiting for approval...")
-                session.is_waiting = True
-            
-            case PackageType.JOIN_ACCEPTED.value:
-                session.group_uuid = payload.get("group_uuid")
-                session.group_name = payload.get("group_name")
-                session.messages.append(f"System: Joined group '{session.group_name}'")
-                session.is_waiting = False
-            
-            case PackageType.JOIN_DENIED.value:
-                session.messages.append("System: Join request denied.")
-                session.is_waiting = False
-            
-            case PackageType.MSG.value:
-                message = payload.get("message", "")
-                username = payload.get("username", payload.get("sender_uuid", "Unknown"))
-                session.messages.append(f"[{username}] {message}")
-    
-    except json.JSONDecodeError:
-        # Shouldn't happen but just in case
-        session.messages.append(data)
-
-
 def connect_to_server(ip, username):
     global client_socket, tcp_listening_thread
     
@@ -132,6 +97,7 @@ def connect_to_server(ip, username):
                     # UUID sendes også men bruges egentligt ik af serveren
                     packet = user_info_packet(session.uuid, session.username)
                     send_packet(packet, sock)
+                    session.rachet_group = RatchetGroup(session.uuid)
                     break
         
         session.is_connected = True
@@ -147,9 +113,67 @@ def connect_to_server(ip, username):
         return {"status": "error", "message": str(e)}
 
 
+# Checks msg header and chooses how to handle it
+def handle_incoming_message(data):
+    try:
+        json_data = from_json(data)
+        msg_type = json_data.get("Type")
+        payload = json_data.get("Payload", {})
+        
+        match msg_type:
+            case PackageType.GROUP_CREATED.value:
+                session.group_uuid = payload.get("group_uuid")
+                session.group_name = payload.get("group_name")
+                session.messages.append(f"System: Group '{session.group_name}' created with ID {session.group_uuid}")
+                session.is_waiting = False
+                
+                if session.rachet_group:
+                    session.rachet_group.create_group()
+            
+            case PackageType.JOIN_REQUEST_TO_ADMIN.value:
+                pub_key_b64 = payload.get("pub_key_b64")
+                user_uuid = payload.get("user_uuid")
+                username = payload.get("username")
+                
+                session.messages.append(f"System: User '{username}' ({user_uuid}) requested to join the group.")
+                session.waiting_requests[user_uuid] = pub_key_b64
+            
+            case PackageType.JOIN_REQUESTED.value:
+                session.messages.append("System: Join request sent. Waiting for approval...")
+                session.is_waiting = True
+            
+            case PackageType.JOIN_ACCEPTED.value:
+                session.group_uuid = payload.get("group_uuid")
+                session.group_name = payload.get("group_name")
+                session.messages.append(f"System: Joined group '{session.group_name}'")
+                session.is_waiting = False
+                
+                if session.rachet_group:
+                    session.rachet_group.join_group(payload.get("welcome_data"), priv_key)
+            
+            case PackageType.JOIN_DENIED.value:
+                session.messages.append("System: Join request denied.")
+                session.is_waiting = False
+            
+            case PackageType.MSG.value:
+                message = payload.get("message", "")
+                username = payload.get("username", payload.get("sender_uuid", "Unknown"))
+                session.messages.append(f"[{username}] {message}")
+    
+    except json.JSONDecodeError:
+        # Shouldn't happen but just in case
+        session.messages.append(data)
+
+
+
+
 def send_message(msg):
     if msg and session.is_connected and client_socket:
         try:
+            if handle_admin_command(msg):
+                return {"status": "command_executed"}
+            
+            
             if session.group_uuid:
                 packet = group_msg_packet(msg, session.uuid, session.group_uuid, session.username)
                 send_packet(packet)
@@ -180,10 +204,48 @@ def create_group(group_name):
 def join_group(group_uuid):
     if session.is_connected and client_socket and not session.group_uuid:
         try:
-            packet = join_group_packet(group_uuid, session.uuid)
+            pub_key_b64 = base64.b64encode(pub_key.public_bytes_raw()).decode('utf-8')
+
+            packet = join_group_packet(group_uuid, session.uuid, pub_key_b64)
             send_packet(packet)
             
             return {"status": "requested"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
     return {"status": "failed", "reason": "Not connected or already in group"}
+
+
+
+
+
+# Admin commands
+def handle_admin_command(message):
+    parts = message.strip().split()
+    if len(parts) < 2:
+        return False
+    
+    command = parts[0].lower()
+    target_uuid = parts[1]
+
+    if command == "!accept" and session.rachet_group and (target_uuid in session.waiting_requests):
+        pub_key_b64 = session.waiting_requests.pop(target_uuid)
+        pub_key = base64.b64decode(pub_key_b64.encode('utf-8'))
+        
+        commit_data, welcome_data = session.rachet_group.add_member(target_uuid, pub_key)
+        
+        send_commit_package(commit_data)
+                
+        packet = join_accepted_packet(session.group_uuid, session.group_name, welcome_data, target_uuid)
+        send_packet(packet)
+        return True
+    return False
+
+
+def send_commit_package(commit_data):
+    if session.is_connected and client_socket and session.group_uuid:
+        try:
+            packet = commit_packet(session.group_uuid, commit_data)
+            send_packet(packet)
+            
+        except Exception as e:
+            print("Error sending commit packet:", str(e))
