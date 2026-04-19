@@ -1,8 +1,10 @@
 import json
 
-from common.config import SERVER_BUFFER
 from common.utils import PackageType
 from common.json_pcks import new_UUID_packet, from_json
+
+from common.network_utils import recv_big, send_big
+
 
 import server.group as group
 
@@ -17,11 +19,11 @@ def handle_client(conn, addr, client_uuid):
     clients[client_uuid] = (conn, addr, None, None)  # Group and Username are empty 
     
     try:
-        conn.sendall(new_UUID_packet(client_uuid))
+        send_big(conn, new_UUID_packet(client_uuid))
     
         while True:
             try:
-                data = conn.recv(SERVER_BUFFER)
+                data = recv_big(conn)
                 
                 # If no data, the client disconnected
                 if not data:
@@ -69,12 +71,13 @@ def handle_client(conn, addr, client_uuid):
                             message = msg_payload.get("message")
                             sender_uuid = msg_payload.get("sender_uuid")
                             group_uuid = msg_payload.get("group_uuid")
+                            epoch = msg_payload.get("epoch")
                             
                             # Check if it's an admin command
-                            if group.handle_admin_command(message, sender_uuid):
-                                continue  # Don't broadcast command as message
+                            #if group.handle_admin_command(message, sender_uuid):
+                            #    continue
                         
-                            group.broadcast_to_group(group_uuid, message, sender_uuid)
+                            group.broadcast_to_group(group_uuid, message, sender_uuid, epoch)
                 
                 except json.JSONDecodeError:
                     # Plain text message (legacy)

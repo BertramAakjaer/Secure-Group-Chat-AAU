@@ -176,7 +176,7 @@ class RatchetGroup:
         
         self.epoch = welcome_pkg["epoch"]
         
-        # Store offline key for future use (e.g., decrypting direct path secrets)
+        # Store priv key
         self._my_offline_pri_key = my_offline_pri_key
         
         # Fill the tree information form list
@@ -341,6 +341,9 @@ class RatchetGroup:
             self.tree[idx].apply_seed(current_seed)
             if idx != 0:
                 current_seed = CryptoUtils.derive_parent_seed(current_seed)
+                
+        
+        self.get_root_key() # Caches the current key
     
     
     
@@ -348,121 +351,3 @@ class RatchetGroup:
         print("Current Tree Structure:")
         for node in self.tree:
             print(f"Index: {node.index}, UID: {node.uid}, PubKey: {node.pub_key_bytes.hex()[:16] if node.pub_key_bytes else None}")
-
-
-
-
-
-# ==========================================
-# EXAMPLE USAGE
-# ==========================================
-def main():
-    print("--- Ratchet Tree Simulation with 5 Users ---\n")
-    
-    # 1. Alice creates the group
-    alice = RatchetGroup("alice_uid")
-    alice.create_group()
-    print(f"[Alice] Group created. Root Key: {alice.get_root_key().hex()[:16]}...")
-    print(f"[Alice] Epoch: {alice.epoch}\n")
-
-    # Store users for later reference
-    users = {"alice_uid": alice}
-
-    # 2. Add 4 more users (Bob, Charlie, Diana, Eve)
-    user_names = ["bob_uid", "charlie_uid", "diana_uid", "eve_uid"]
-    
-    for user_name in user_names:
-        # Generate offline identity
-        pri_key, pub_key = CryptoUtils.generate_keypair()
-        
-        # Alice adds the member
-        commit_pkg, welcome_pkg = alice.add_member(user_name, pub_key)
-        commit_dict = from_rachet_packet(commit_pkg)
-        
-        print(f"[Alice] Added {user_name}. Epoch: {commit_dict['Payload']['epoch']}")
-        
-        # New user joins
-        new_user = RatchetGroup(user_name)
-        new_user.join_group(welcome_pkg, pri_key)
-        users[user_name] = new_user
-        
-        print(f"[{user_name.split('_')[0].capitalize()}] Joined group. Root Key: {new_user.get_root_key().hex()[:16]}... Epoch: {new_user.epoch}")
-        
-        # All other users process the commit
-        for other_name, other_user in users.items():
-            if other_name != user_name and other_name != "alice_uid":
-                other_user.process_commit(commit_pkg)
-        
-        # Verify everyone has the same key
-        alice.process_commit(commit_pkg)
-        root_key = alice.get_root_key()
-        all_match = all(users[name].get_root_key() == root_key for name in users)
-        print(f"-> All keys match: {all_match}\n")
-
-    # 3. Key rotation: Bob rotates the keys
-    print("--- Key Rotation: Bob rotates keys ---")
-    bob = users["bob_uid"]
-    alice = users["alice_uid"]
-    commit_pkg = bob._rotate_keys()
-    commit_dict = from_rachet_packet(commit_pkg)
-    print(f"[Bob] Rotated keys. New Epoch: {commit_dict['Payload']['epoch']}")
-    
-    # All users process the commit
-    for name, user in users.items():
-        if name != "bob_uid":
-            user.process_commit(commit_pkg)
-    
-    # Verify everyone has the same key after rotation
-    bob_key = bob.get_root_key()
-    all_match = all(users[name].get_root_key() == bob_key for name in users)
-    print(f"-> Keys match after rotation: {all_match}")
-    print(f"-> New shared key: {bob_key.hex()[:16]}... Epoch: {bob.epoch}\n")
-
-    # 4. Another rotation: Charlie rotates the keys
-    print("--- Key Rotation: Charlie rotates keys ---")
-    alice = users["alice_uid"]
-    charlie = users["charlie_uid"]
-    commit_pkg = charlie._rotate_keys()
-    commit_dict = from_rachet_packet(commit_pkg)
-    print(f"[Charlie] Rotated keys. New Epoch: {commit_dict['Payload']['epoch']}")
-    
-    # All users process the commit
-    for name, user in users.items():
-        if name != "charlie_uid":
-            user.process_commit(commit_pkg)
-    
-    charlie_key = charlie.get_root_key()
-    all_match = all(users[name].get_root_key() == charlie_key for name in users)
-    print(f"-> Keys match after rotation: {all_match}")
-    print(f"-> New shared key: {charlie_key.hex()[:16]}... Epoch: {charlie.epoch}\n")
-
-    # 5. Remove Eve from the group
-    print("--- Removing Eve from the group ---")
-    alice = users["alice_uid"]
-    eve_key_before = users["eve_uid"].get_root_key()
-    print(f"[Eve] Key before removal: {eve_key_before.hex()[:16]}... Epoch: {users['eve_uid'].epoch}")
-    
-    commit_pkg = alice.remove_member("eve_uid")
-    commit_dict = from_rachet_packet(commit_pkg)
-    print(f"[Alice] Removed Eve. New Epoch: {commit_dict['Payload']['epoch']}")
-    
-    # All remaining users process the commit
-    for name, user in users.items():
-        if name != "eve_uid":
-            user.process_commit(commit_pkg)
-    
-    # Eve's key should now be outdated
-    remaining_key = alice.get_root_key()
-    all_match = all(users[name].get_root_key() == remaining_key for name in ["alice_uid", "bob_uid", "charlie_uid", "diana_uid"])
-    print(f"-> Remaining users' keys match: {all_match}")
-    print(f"-> New shared key (Eve excluded): {remaining_key.hex()[:16]}... Epoch: {alice.epoch}")
-    print(f"[Eve] Key after removal (outdated): {users['eve_uid'].get_root_key().hex()[:16]}... Epoch: {users['eve_uid'].epoch}")
-    print(f"-> Eve's key differs from group: {remaining_key != users['eve_uid'].get_root_key()}\n")
-
-    # 6. Final verification
-    print("--- Final Verification ---")
-    final_key = alice.get_root_key()
-    for name in ["alice_uid", "bob_uid", "charlie_uid", "diana_uid"]:
-        key_match = users[name].get_root_key() == final_key
-        epoch = users[name].epoch
-        print(f"[{name.split('_')[0].capitalize()}] Epoch: {epoch}, Key matches: {key_match}")

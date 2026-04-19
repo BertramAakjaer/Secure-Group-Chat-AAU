@@ -1,7 +1,2 @@
-Adding rachet keys
-
-Adding actual encryption (fix admin commands da de ikke kan være krypterede)
-
-Adding the UI
-
-Adding the intial conn to be RSA
+- Adding the UI
+- Adding the intial conn to be RSA
