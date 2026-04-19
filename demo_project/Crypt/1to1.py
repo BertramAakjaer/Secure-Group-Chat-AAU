@@ -18,7 +18,7 @@ class Securehandshake:
             key_size=2048
         )
 
-        self.our_shared_rsa = self.our_private_rsa()
+        self.our_shared_rsa = self.our_private_rsa.public_key()
 
         #temporary key for ECDH.
         self.temporary_dh_key = x25519.X25519PrivateKey.generate()
@@ -58,7 +58,7 @@ class Securehandshake:
             our_dh,
             padding.OAEP(
                 mgf=padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256,
+                algorithm=hashes.SHA256(),
                 label=None                
             )
             )
