@@ -1,5 +1,7 @@
 from common.json_pcks import group_created_packet, join_requested_packet, join_accepted_packet, join_denied_packet, group_msg_packet, join_request_to_admin_packet, commit_packet
 from common.utils import random_group_uid
+from common.network_utils import send_big
+
 
 # groups: group_uuid -> {'admin': uuid, 'name': str, 'members': set(uuids), 'pending': set(uuids)}
 # admin = den der styrer gruppen
@@ -22,12 +24,12 @@ def _send_to_uuid(target_uuid, packet):
 
     conn = clients[target_uuid][0]
     try:
-        conn.sendall(packet)
+        send_big(conn, packet)
         return True
     except Exception:
         print(f"[ERROR] Failed to send packet to {target_uuid}")
         return False
-    
+
     
 
 # Group related functions - - - -
@@ -117,7 +119,7 @@ def deny_join(group_uuid, target_uuid, admin_uuid):
 
 
 
-def broadcast_to_group(group_uuid, message, sender_uuid):
+def broadcast_to_group(group_uuid, message, sender_uuid, epoch=None):
     if group_uuid not in groups:
         return
     
@@ -136,7 +138,7 @@ def broadcast_to_group(group_uuid, message, sender_uuid):
         username = "SYSTEM"
         
     # Sends packet to all members
-    packet = group_msg_packet(message, sender_uuid, group_uuid, username)
+    packet = group_msg_packet(message, sender_uuid, group_uuid, epoch, username)
     for member_uuid in groups[group_uuid]['members']:
         if member_uuid == sender_uuid:
             continue

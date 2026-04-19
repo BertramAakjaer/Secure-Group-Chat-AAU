@@ -6,7 +6,6 @@ from common.utils import random_user_uid
 
 import server.connection as connection
 
-
 def start_server(ip, port):
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     

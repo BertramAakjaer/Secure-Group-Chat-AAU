@@ -341,6 +341,9 @@ class RatchetGroup:
             self.tree[idx].apply_seed(current_seed)
             if idx != 0:
                 current_seed = CryptoUtils.derive_parent_seed(current_seed)
+                
+        
+        self.get_root_key() # Caches the current key
     
     
     

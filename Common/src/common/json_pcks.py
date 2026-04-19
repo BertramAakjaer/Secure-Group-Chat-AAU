@@ -125,17 +125,22 @@ def join_denied_packet(): # From server to user after deny
 
 # Regular Message packet
 
-def group_msg_packet(message, sender_uuid, group_uuid, username=None):
+def group_msg_packet(message, sender_uuid, group_uuid, epoch=None, username=None):
+    
+    is_encrypted = epoch != None
+    
     packet = {
         "Type": PackageType.MSG.value,
         "Payload": {
-            "encrypted": False,
+            "encrypted": is_encrypted,
+            "epoch": epoch,
             "message": message,
             "sender_uuid": sender_uuid,
             "group_uuid": group_uuid,
             "username": username
         },
     }
+    
     return _to_json(packet)
 
 

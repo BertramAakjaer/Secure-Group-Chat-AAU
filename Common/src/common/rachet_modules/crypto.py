@@ -23,6 +23,11 @@ class CryptoUtils:
         pri_key = x25519.X25519PrivateKey.generate()
         pub_key = pri_key.public_key()
         return pri_key, pub_key
+    
+    @staticmethod
+    def from_bytes_get_pub_key(raw_bytes):
+        pub_key = x25519.X25519PublicKey.from_public_bytes(raw_bytes)
+        return pub_key
 
     @staticmethod
     def derive_parent_seed(child_seed: bytes) -> bytes:
@@ -60,3 +65,33 @@ class CryptoUtils:
         derived_key = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"encryption").derive(shared_secret)
         aesgcm = AESGCM(derived_key)
         return aesgcm.decrypt(bytes.fromhex(encrypted_data["nonce"]), bytes.fromhex(encrypted_data["ciphertext"]), None)
+    
+    
+    
+    @staticmethod
+    def encrypt_message(key, plaintext):
+        if len(key) != 32:
+            raise ValueError("Key must be exactly 32 bytes for AES-256")
+            
+        aesgcm = AESGCM(key)
+        nonce = os.urandom(12) # 96-bit nonce recommended for GCM
+        plaintext_bytes = plaintext.encode('utf-8')
+        ciphertext = aesgcm.encrypt(nonce, plaintext_bytes, None)
+
+        return {
+            "nonce": nonce.hex(),
+            "ciphertext": ciphertext.hex()
+        }
+        
+        
+    @staticmethod
+    def decrypt_string(key: bytes, encrypted_data: dict) -> str:
+        if len(key) != 32:
+            raise ValueError("Key must be exactly 32 bytes for AES-256")
+            
+        aesgcm = AESGCM(key)
+        nonce = bytes.fromhex(encrypted_data["nonce"])
+        ciphertext = bytes.fromhex(encrypted_data["ciphertext"])
+        
+        plaintext_bytes = aesgcm.decrypt(nonce, ciphertext, None)
+        return plaintext_bytes.decode('utf-8')
