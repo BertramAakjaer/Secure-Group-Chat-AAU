@@ -1,7 +1,7 @@
 import socket, threading, json, time
 
 from common.utils import PackageType
-from common.json_pcks import from_json
+from common.json_pcks import from_json, user_info_packet, group_msg_packet, create_group_packet, join_group_packet
 from common.config import CLIENT_BUFFER
 
 import client.modules.data_structs as data_structs
@@ -27,6 +27,20 @@ def recv_data(sock):
             session.messages.append(f"System Error: {str(e)}")
 
 
+def send_packet(packet, sock=None):
+    target = sock if sock is not None else client_socket
+    if not target:
+        return False
+
+    try:
+        target.sendall(packet)
+        return True
+    except Exception as e:
+        if session.is_connected:
+            session.messages.append(f"System Error: {str(e)}")
+        return False
+
+
 # Created in a new thread when connection is made for the server
 def tcp_listener(sock):
     global client_socket # For at den kan ændres
@@ -48,6 +62,7 @@ def tcp_listener(sock):
     client_socket = None
 
 
+# Checks msg header and chooses how to handle it
 def handle_incoming_message(data):
     try:
         json_data = from_json(data)
@@ -81,6 +96,7 @@ def handle_incoming_message(data):
                 session.messages.append(f"[{username}] {message}")
     
     except json.JSONDecodeError:
+        # Shouldn't happen but just in case
         session.messages.append(data)
 
 
@@ -111,10 +127,11 @@ def connect_to_server(ip, username):
                 json_data = from_json(data)
                 if json_data.get("Type") == PackageType.NEW_UUID.value:
                     session.uuid = json_data.get("Payload", {}).get("UUID", "unknown")
-                    # Send user info
-                    from common.json_pcks import user_info_packet
+                    
+                    # Send username for server
+                    # UUID sendes også men bruges egentligt ik af serveren
                     packet = user_info_packet(session.uuid, session.username)
-                    sock.sendall(packet)
+                    send_packet(packet, sock)
                     break
         
         session.is_connected = True
@@ -134,15 +151,10 @@ def send_message(msg):
     if msg and session.is_connected and client_socket:
         try:
             if session.group_uuid:
-                # Send as group message
-                from common.json_pcks import group_msg_packet
                 packet = group_msg_packet(msg, session.uuid, session.group_uuid, session.username)
-                client_socket.sendall(packet)
-            else:
-                # Send as plain message (legacy)
-                formatted_msg = f"[{session.username}] {msg}"
-                client_socket.sendall(formatted_msg.encode('utf-8'))
-            
+                send_packet(packet)
+                
+            # Shows the message for the sender
             session.messages.append(f"You: {msg}")
             
             return {"status": "sent"}
@@ -156,11 +168,9 @@ def send_message(msg):
 def create_group(group_name):
     if session.is_connected and client_socket and not session.group_uuid:
         try:
-            from common.json_pcks import create_group_packet
-            from common.utils import random_group_uid
-            group_uuid = random_group_uid()
-            packet = create_group_packet(group_name, group_uuid, session.uuid)
-            client_socket.sendall(packet)
+            packet = create_group_packet(group_name, session.uuid)
+            send_packet(packet)
+            
             return {"status": "requested"}
         except Exception as e:
             return {"status": "error", "error": str(e)}
@@ -170,9 +180,9 @@ def create_group(group_name):
 def join_group(group_uuid):
     if session.is_connected and client_socket and not session.group_uuid:
         try:
-            from common.json_pcks import join_group_packet
             packet = join_group_packet(group_uuid, session.uuid)
-            client_socket.sendall(packet)
+            send_packet(packet)
+            
             return {"status": "requested"}
         except Exception as e:
             return {"status": "error", "error": str(e)}

@@ -110,6 +110,7 @@ def group_msg_packet(message, sender_uuid, group_uuid, username=None):
     packet = {
         "Type": PackageType.MSG.value,
         "Payload": {
+            "encrypted": False,
             "message": message,
             "sender_uuid": sender_uuid,
             "group_uuid": group_uuid,
