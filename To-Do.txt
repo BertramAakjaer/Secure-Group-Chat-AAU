@@ -1,7 +1,3 @@
-Working group chat join + creation
-
-Adding admin to GC
-
 Adding rachet keys
 
 Adding actual encryption (fix admin commands da de ikke kan være krypterede)

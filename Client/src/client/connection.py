@@ -4,7 +4,7 @@ from common.utils import PackageType
 from common.json_pcks import from_json, user_info_packet, group_msg_packet, create_group_packet, join_group_packet
 from common.config import CLIENT_BUFFER
 
-import client.modules.data_structs as data_structs
+import client.data_structs as data_structs
 
 
 client_socket = None
