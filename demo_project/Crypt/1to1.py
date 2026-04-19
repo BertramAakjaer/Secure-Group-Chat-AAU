@@ -63,3 +63,35 @@ class Securehandshake:
             )
             )
         return ready_envelope
+    def last_key_create(self, come_envelope):
+        """
+        we finis handshake and find aes key
+        """
+        # decrypt envelope with our rsa key
+        dh_key_from_another_user = self.our_private_rsa.decrypt(
+            come_envelope,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None
+            )
+        )
+
+        # 2.handshake math (DH)
+        #Upload arrival data and match my dh key.
+        another_user_dh_public = x25519.X25519PublicKey.from_public_bytes(dh_key_from_another_user)
+
+        shared_secret = self.temporary_dh_key.exchange(another_user_dh_public)
+
+        #3.hashing
+        # we turn shared secret into 32 bayt aes key
+        #this step blocks unbalancing by turning keys into 32 bayts hashed version.
+
+        final_aes_key = HKDF(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=None,
+            info=b"chatting-key",
+        ).derive(shared_secret)
+
+        return final_aes_key #ready to be key of our chat encryption.
