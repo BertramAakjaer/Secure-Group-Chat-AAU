@@ -16,3 +16,4 @@ class SessionInfo:
     messages: list[str] = field(default_factory=list)    
     
     is_connected: bool = False
+    is_waiting: bool = False

@@ -4,7 +4,7 @@
     <title>Secure Group Chat Client</title>
   </head>
   <body>
-    <h1>TCP Communication Client</h1>
+    <h1>Secure Group Chat Client</h1>
 
     <div id="user-info" style="display: none">
       <p>
@@ -26,8 +26,37 @@
       <p id="login-status" style="color: red"></p>
     </div>
 
+    <div id="group-section" style="display: none">
+      <h2>Choose Action</h2>
+      <button onclick="showCreateGroup()">Create Group Chat</button>
+      <button onclick="showJoinGroup()">Join Group Chat</button>
+      <p id="group-status" style="color: red"></p>
+    </div>
+
+    <div id="create-group-section" style="display: none">
+      <h2>Create Group Chat</h2>
+      <label>Group Name:</label>
+      <input type="text" id="group-name" placeholder="Enter group name" />
+      <button onclick="createGroup()">Create</button>
+      <button onclick="backToGroupChoice()">Back</button>
+    </div>
+
+    <div id="join-group-section" style="display: none">
+      <h2>Join Group Chat</h2>
+      <label>Group UUID:</label>
+      <input type="text" id="group-uuid" placeholder="Enter group UUID" />
+      <button onclick="joinGroup()">Join</button>
+      <button onclick="backToGroupChoice()">Back</button>
+    </div>
+
+    <div id="waiting-section" style="display: none">
+      <h2>Waiting for Approval</h2>
+      <p>Waiting for the group admin to accept your join request...</p>
+      <button onclick="disconnect()">Disconnect</button>
+    </div>
+
     <div id="chat-section" style="display: none">
-      <h2>Connected to {Group_name}[{Group_UUID}]</h2>
+      <h2 id="chat-title">Connected to Group</h2>
 
       <textarea id="chatbox" rows="20" cols="60" readonly></textarea>
       <br /><br />
