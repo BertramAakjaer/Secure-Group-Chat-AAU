@@ -1,0 +1,77 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Secure Group Chat Client</title>
+  </head>
+  <body>
+    <h1>Secure Group Chat Client</h1>
+
+    <div id="user-info" style="display: none">
+      <p>
+        User: <span id="current-user"></span> (<span id="user-uuid"></span>)
+      </p>
+    </div>
+
+    <div id="login-section">
+      <label>Username:</label>
+      <input type="text" id="username" placeholder="Enter username" />
+      <label>Server IP:</label>
+      <input
+        type="text"
+        id="server-ip"
+        placeholder="127.0.0.1"
+        value="127.0.0.1"
+      />
+      <button onclick="connectToServer()">Connect</button>
+      <p id="login-status" style="color: red"></p>
+    </div>
+
+    <div id="group-section" style="display: none">
+      <h2>Choose Action</h2>
+      <button onclick="showCreateGroup()">Create Group Chat</button>
+      <button onclick="showJoinGroup()">Join Group Chat</button>
+      <p id="group-status" style="color: red"></p>
+    </div>
+
+    <div id="create-group-section" style="display: none">
+      <h2>Create Group Chat</h2>
+      <label>Group Name:</label>
+      <input type="text" id="group-name" placeholder="Enter group name" />
+      <button onclick="createGroup()">Create</button>
+      <button onclick="backToGroupChoice()">Back</button>
+    </div>
+
+    <div id="join-group-section" style="display: none">
+      <h2>Join Group Chat</h2>
+      <label>Group UUID:</label>
+      <input type="text" id="group-uuid" placeholder="Enter group UUID" />
+      <button onclick="joinGroup()">Join</button>
+      <button onclick="backToGroupChoice()">Back</button>
+    </div>
+
+    <div id="waiting-section" style="display: none">
+      <h2>Waiting for Approval</h2>
+      <p>Waiting for the group admin to accept your join request...</p>
+      <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div id="chat-section" style="display: none">
+      <h2 id="chat-title">Connected to Group</h2>
+
+      <textarea id="chatbox" rows="20" cols="60" readonly></textarea>
+      <br /><br />
+
+      <!-- Input and Send mechanisms -->
+      <input
+        type="text"
+        id="messageInput"
+        placeholder="Type a message to send..."
+        size="50"
+      />
+      <button onclick="sendMessage()">Send</button>
+      <br /><br />
+    </div>
+
+    <script src="/static/script.js"></script>
+  </body>
+</html>
