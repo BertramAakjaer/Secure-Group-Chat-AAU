@@ -39,12 +39,14 @@ def welcome_packet(epoch, tree_state, encrypted_root):
 
 
 
-def commit_packet(operations, epoch):
+def commit_packet(operations, epoch, tree_state=None, direct_path_secrets=None):
     packet = {
         "Type": RachetTypes.COMMIT.value,
         "Payload": {
             "operations": operations,
             "epoch": epoch,
+            "tree_state": tree_state,
+            "direct_path_secrets": direct_path_secrets if isinstance(direct_path_secrets, list) else ([direct_path_secrets] if direct_path_secrets else None),
         },
     }
     return _to_rachet_packet(packet)

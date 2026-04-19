@@ -38,6 +38,13 @@ class RatchetGroup:
             self.tree.append(TreeNode(i))
             
         self.leaf_start_index = self.num_leaves - 1
+        
+        # Track newly added member for commit encryption
+        self._last_added_leaf = None
+        self._last_added_pub_key = None
+        
+        # Store my offline private key for decrypting direct path secrets
+        self._my_offline_pri_key = None
 
 
     # Tree navigation helper functions - - - -
@@ -118,7 +125,10 @@ class RatchetGroup:
         # Populates data
         self.tree[new_leaf_idx].uid = new_uid
         self.tree[new_leaf_idx].pub_key_bytes = new_pub_key_bytes
-
+        
+        # Track the newly added member so _rotate_keys can encrypt for them
+        self._last_added_leaf = new_leaf_idx
+        self._last_added_pub_key = new_pub_key_bytes
 
         # Creates commit package 
         commit_data = self._rotate_keys()
@@ -129,21 +139,33 @@ class RatchetGroup:
         else:
             encrypted_root = None
 
-        # Serialize the public state of the tree
-        tree_state = []
-        
-        
-        # Make a copy of public data
-        for node in self.tree:
-            tree_state.append({
-                "index": node.index,
-                "uid": node.uid,
-                "pub_key": node.pub_key_bytes.hex() if node.pub_key_bytes else None
-            })
+        # Serialize the public state of the tree for welcome packet
+        tree_state = self._serialize_tree_state()
 
         welcome_data = welcome_packet(self.epoch, tree_state, encrypted_root)
 
         return commit_data, welcome_data
+
+    
+    # Remove a user from the tree and rotate keys
+    def remove_member(self, uid_to_remove):
+        # Find the leaf to remove
+        leaf_to_remove_idx = -1
+        for i in range(self.leaf_start_index, self.total_nodes):
+            if self.tree[i].uid == uid_to_remove:
+                leaf_to_remove_idx = i
+                break
+        
+        if leaf_to_remove_idx == -1:
+            raise ValueError(f"User {uid_to_remove} not found in group!")
+        
+        # Clear the leaf data
+        self.tree[leaf_to_remove_idx].uid = None
+        self.tree[leaf_to_remove_idx].pub_key_bytes = None
+        
+        # Rotate keys to update the tree
+        commit_data = self._rotate_keys()
+        return commit_data
 
 
 
@@ -153,6 +175,9 @@ class RatchetGroup:
         welcome_pkg = welcome_dict["Payload"]
         
         self.epoch = welcome_pkg["epoch"]
+        
+        # Store offline key for future use (e.g., decrypting direct path secrets)
+        self._my_offline_pri_key = my_offline_pri_key
         
         # Fill the tree information form list
         for node_data in welcome_pkg["tree_state"]:
@@ -171,6 +196,17 @@ class RatchetGroup:
 
     # Rachet mechanics - - - -
     
+    # Serialize the public state of the tree
+    def _serialize_tree_state(self):
+        tree_state = []
+        for node in self.tree:
+            tree_state.append({
+                "index": node.index,
+                "uid": node.uid,
+                "pub_key": node.pub_key_bytes.hex() if node.pub_key_bytes else None
+            })
+        return tree_state
+    
     # Rotate keys and creates COMMIT packet
     def _rotate_keys(self):
         
@@ -183,6 +219,7 @@ class RatchetGroup:
         
         new_seed = CryptoUtils.gen_seed()
         path = self._get_direct_path(my_leaf_idx)
+        path_set = set(path)  # For efficient lookup
         
         commit_operations = []
         current_seed = new_seed
@@ -214,8 +251,24 @@ class RatchetGroup:
         
         self.epoch += 1 # Epoch changed
         
+        # Create direct path secrets for members not on the rotation path
+        direct_path_secrets = []
+        root_seed = self.tree[0].seed
         
-        commit_data = commit_packet(commit_operations, self.epoch)
+        if root_seed:
+            # Find all active members and send them direct path secrets if they're not on this path
+            for leaf_idx in range(self.leaf_start_index, self.total_nodes):
+                leaf_uid = self.tree[leaf_idx].uid
+                if leaf_uid and leaf_idx not in path_set and self.tree[leaf_idx].pub_key_bytes:
+                    encrypted_root = CryptoUtils.encrypt_to_pub(self.tree[leaf_idx].pub_key_bytes, root_seed)
+                    direct_path_secrets.append({
+                        "leaf_index": leaf_idx,
+                        "encrypted_root": encrypted_root
+                    })
+        
+        # Include tree state in commit so all members can synchronize
+        tree_state = self._serialize_tree_state()
+        commit_data = commit_packet(commit_operations, self.epoch, tree_state, direct_path_secrets if direct_path_secrets else None)
         return commit_data
 
 
@@ -226,6 +279,38 @@ class RatchetGroup:
         commit_pkg = commit_dict["Payload"]
         
         self.epoch = commit_pkg["epoch"]
+        
+        # Update tree state if provided (for when new members are added)
+        if commit_pkg.get("tree_state"):
+            for node_data in commit_pkg["tree_state"]:
+                idx = node_data["index"]
+                self.tree[idx].uid = node_data["uid"]
+                if node_data["pub_key"]:
+                    self.tree[idx].pub_key_bytes = bytes.fromhex(node_data["pub_key"])
+        
+        # Check if there's a direct encryption for my leaf
+        if commit_pkg.get("direct_path_secrets") and self._my_offline_pri_key:
+            direct_secrets = commit_pkg["direct_path_secrets"]
+            if not isinstance(direct_secrets, list):
+                direct_secrets = [direct_secrets] if direct_secrets else []
+            
+            # Find my leaf
+            my_leaf_idx = None
+            for i in range(self.leaf_start_index, self.total_nodes):
+                if self.tree[i].uid == self.my_uid:
+                    my_leaf_idx = i
+                    break
+            
+            # Look for a direct secret for my leaf
+            for direct_secret in direct_secrets:
+                if my_leaf_idx is not None and direct_secret["leaf_index"] == my_leaf_idx:
+                    try:
+                        root_seed = CryptoUtils.decrypt_with_pri(self._my_offline_pri_key, direct_secret["encrypted_root"])
+                        self.tree[0].apply_seed(root_seed)
+                        return  # Successfully got root from direct secret
+                    except Exception:
+                        pass  # Decryption failed, continue to regular process
+        
         decrypted_seed = None
         correct_sibling = -1
 
@@ -272,28 +357,116 @@ class RatchetGroup:
 # EXAMPLE USAGE
 # ==========================================
 def main():
-    print("--- Ratchet Tree Simulation ---")
+    print("--- Ratchet Tree Simulation with 5 Users ---\n")
     
     # 1. Alice creates the group
     alice = RatchetGroup("alice_uid")
     alice.create_group()
     print(f"[Alice] Group created. Root Key: {alice.get_root_key().hex()[:16]}...")
+    print(f"[Alice] Epoch: {alice.epoch}\n")
 
-    # 2. Bob generates his offline identity (usually done locally by Bob)
-    bob_pri, bob_pub = CryptoUtils.generate_keypair()
+    # Store users for later reference
+    users = {"alice_uid": alice}
 
-    # 3. Alice adds Bob
-    commit_pkg, welcome_pkg = alice.add_member("bob_uid", bob_pub)
+    # 2. Add 4 more users (Bob, Charlie, Diana, Eve)
+    user_names = ["bob_uid", "charlie_uid", "diana_uid", "eve_uid"]
+    
+    for user_name in user_names:
+        # Generate offline identity
+        pri_key, pub_key = CryptoUtils.generate_keypair()
+        
+        # Alice adds the member
+        commit_pkg, welcome_pkg = alice.add_member(user_name, pub_key)
+        commit_dict = from_rachet_packet(commit_pkg)
+        
+        print(f"[Alice] Added {user_name}. Epoch: {commit_dict['Payload']['epoch']}")
+        
+        # New user joins
+        new_user = RatchetGroup(user_name)
+        new_user.join_group(welcome_pkg, pri_key)
+        users[user_name] = new_user
+        
+        print(f"[{user_name.split('_')[0].capitalize()}] Joined group. Root Key: {new_user.get_root_key().hex()[:16]}... Epoch: {new_user.epoch}")
+        
+        # All other users process the commit
+        for other_name, other_user in users.items():
+            if other_name != user_name and other_name != "alice_uid":
+                other_user.process_commit(commit_pkg)
+        
+        # Verify everyone has the same key
+        alice.process_commit(commit_pkg)
+        root_key = alice.get_root_key()
+        all_match = all(users[name].get_root_key() == root_key for name in users)
+        print(f"-> All keys match: {all_match}\n")
+
+    # 3. Key rotation: Bob rotates the keys
+    print("--- Key Rotation: Bob rotates keys ---")
+    bob = users["bob_uid"]
+    alice = users["alice_uid"]
+    commit_pkg = bob._rotate_keys()
     commit_dict = from_rachet_packet(commit_pkg)
+    print(f"[Bob] Rotated keys. New Epoch: {commit_dict['Payload']['epoch']}")
     
-    print(f"\n[Alice] Added Bob. Generated COMMIT (Epoch {commit_dict['Payload']['epoch']}) and WELCOME.")
-    print(f"[Alice] New Root Key: {alice.get_root_key().hex()[:16]}...")
+    # All users process the commit
+    for name, user in users.items():
+        if name != "bob_uid":
+            user.process_commit(commit_pkg)
+    
+    # Verify everyone has the same key after rotation
+    bob_key = bob.get_root_key()
+    all_match = all(users[name].get_root_key() == bob_key for name in users)
+    print(f"-> Keys match after rotation: {all_match}")
+    print(f"-> New shared key: {bob_key.hex()[:16]}... Epoch: {bob.epoch}\n")
 
-    # 4. Bob joins using the Welcome package
-    bob = RatchetGroup("bob_uid")
-    bob.join_group(welcome_pkg, bob_pri)
-    print(f"[Bob] Joined group. Root Key: {bob.get_root_key().hex()[:16]}...")
-    #bob.print_tree_structure()
+    # 4. Another rotation: Charlie rotates the keys
+    print("--- Key Rotation: Charlie rotates keys ---")
+    alice = users["alice_uid"]
+    charlie = users["charlie_uid"]
+    commit_pkg = charlie._rotate_keys()
+    commit_dict = from_rachet_packet(commit_pkg)
+    print(f"[Charlie] Rotated keys. New Epoch: {commit_dict['Payload']['epoch']}")
     
-    assert alice.get_root_key() == bob.get_root_key(), "Keys do not match!"
-    print("-> Keys match successfully!")
+    # All users process the commit
+    for name, user in users.items():
+        if name != "charlie_uid":
+            user.process_commit(commit_pkg)
+    
+    charlie_key = charlie.get_root_key()
+    all_match = all(users[name].get_root_key() == charlie_key for name in users)
+    print(f"-> Keys match after rotation: {all_match}")
+    print(f"-> New shared key: {charlie_key.hex()[:16]}... Epoch: {charlie.epoch}\n")
+
+    # 5. Remove Eve from the group
+    print("--- Removing Eve from the group ---")
+    alice = users["alice_uid"]
+    eve_key_before = users["eve_uid"].get_root_key()
+    print(f"[Eve] Key before removal: {eve_key_before.hex()[:16]}... Epoch: {users['eve_uid'].epoch}")
+    
+    commit_pkg = alice.remove_member("eve_uid")
+    commit_dict = from_rachet_packet(commit_pkg)
+    print(f"[Alice] Removed Eve. New Epoch: {commit_dict['Payload']['epoch']}")
+    
+    # All remaining users process the commit
+    for name, user in users.items():
+        if name != "eve_uid":
+            user.process_commit(commit_pkg)
+    
+    # Eve's key should now be outdated
+    remaining_key = alice.get_root_key()
+    all_match = all(users[name].get_root_key() == remaining_key for name in ["alice_uid", "bob_uid", "charlie_uid", "diana_uid"])
+    print(f"-> Remaining users' keys match: {all_match}")
+    print(f"-> New shared key (Eve excluded): {remaining_key.hex()[:16]}... Epoch: {alice.epoch}")
+    print(f"[Eve] Key after removal (outdated): {users['eve_uid'].get_root_key().hex()[:16]}... Epoch: {users['eve_uid'].epoch}")
+    print(f"-> Eve's key differs from group: {remaining_key != users['eve_uid'].get_root_key()}\n")
+
+    # 6. Final verification
+    print("--- Final Verification ---")
+    final_key = alice.get_root_key()
+    for name in ["alice_uid", "bob_uid", "charlie_uid", "diana_uid"]:
+        key_match = users[name].get_root_key() == final_key
+        epoch = users[name].epoch
+        print(f"[{name.split('_')[0].capitalize()}] Epoch: {epoch}, Key matches: {key_match}")
+
+
+if __name__ == "__main__":
+    main()
