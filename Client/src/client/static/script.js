@@ -157,7 +157,8 @@ function sendMessage() {
   })
     .then((response) => response.json())
     .then((data) => {
-      if (data.status === "sent") {
+      // FIX: Add check for "command_executed"
+      if (data.status === "sent" || data.status === "command_executed") {
         inputField.value = ""; // Clear text box
         pollMessages(); // Force immediate screen refresh
       } else {
