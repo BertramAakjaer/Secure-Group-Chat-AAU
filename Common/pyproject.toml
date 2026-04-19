@@ -7,3 +7,9 @@ name = "common"
 version = "2025.0.1"
 requires-python = ">=3.13"
 dependencies = []
+
+[project.scripts]
+rachet = "common.rachet_modules.rachet_tree:main"
+
+[tool.uv.sources]
+common = { workspace = true }

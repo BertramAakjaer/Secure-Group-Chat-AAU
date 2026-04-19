@@ -38,6 +38,11 @@ def user_info_packet(uuid, username):
     return _to_json(packet)
 
 
+
+
+
+
+
 # Group Related packets
 
 def create_group_packet(group_name, admin_uuid):
@@ -115,6 +120,22 @@ def group_msg_packet(message, sender_uuid, group_uuid, username=None):
             "sender_uuid": sender_uuid,
             "group_uuid": group_uuid,
             "username": username
+        },
+    }
+    return _to_json(packet)
+
+
+
+
+
+# Rachet packets
+
+def rachet_info_packet(guid, rachet_data):
+    packet = {
+        "Type": PackageType.RACHET.value,
+        "Payload": {
+            "guid": guid,
+            "rachet_data": rachet_data
         },
     }
     return _to_json(packet)

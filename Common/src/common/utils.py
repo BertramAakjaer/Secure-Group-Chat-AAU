@@ -22,11 +22,9 @@ class PackageType(str, Enum):
     JOIN_ACCEPTED = "JOIN_ACCEPTED"
     MSG = "MSG" # Alm besked
     
-    # Ikke implementeret endnu
-    PROPOSAL = "PROPOSAL" # Tilføje/Fjerne Bruger
-    COMMIT = "COMMIT" # Vedtaget Ændring
-    WELCOME = "WELCOME" # Tilføjning af ny bruger
-    
+    # Rachet specific
+    RACHET = "RACHET" # Rachet Packet
+
 
 # Funktioner til at generer tilfældige id til vores brugere
 import hashlib, time, random

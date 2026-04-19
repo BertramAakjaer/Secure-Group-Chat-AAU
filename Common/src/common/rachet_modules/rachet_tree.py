@@ -1,7 +1,11 @@
 import math
 
-import common.crypto as crypto
-from common.rachet_modules.nodes import Node_Member, Node_Own, make_node_owned
+from common.rachet_modules.node import TreeNode
+from common.rachet_modules.rachet_pcks import welcome_packet, commit_packet, from_rachet_packet
+from common.rachet_modules.crypto import CryptoUtils
+
+from common.config import MAX_GROUP_MEMBERS
+
 
 # Returns the depth of the tree and number of leaf nodes
 def _get_tree_size(n):
@@ -16,382 +20,280 @@ def _get_tree_size(n):
     return (int(math.log2(leaf_nodes)), leaf_nodes)
 
 
-class Tree:
-    def __init__(self, local_uid: str, init_secret, welcome_msg: dict, min_users: int=5):
-        self.local_user: str = local_uid
-        self.path_user = []
-        
-        self.tree_depth: int | None
-        self.leaf_nodes: int | None
-        
-        self.root: Node_Own | None
-        
-        self.users: dict[str, int] = {} # UID til leaf index fra 0..n fra venstre
-        
-        # Initalisere data der bruges
-        self._init_tree(init_secret, min_users, welcome_msg)
-        
-    
-    def _init_tree(self, init_secret, min_users: int, welcome_msg: dict):
-        self.tree_depth, self.leaf_nodes = _get_tree_size(min_users)
-        
-        root_temp = self._create_tree_structure(self.tree_depth)
-        if isinstance(root_temp, Node_Own):
-            self.root = root_temp
-        else:
-            raise RuntimeError("Panic: Root node error")
-        
-        users_data = welcome_msg["users"] # Getting all users and their indecies
 
-        user_found_check: bool = False
-        for user_id, index in users_data.items():
-            self.fill_leaf(index, user_id)
-            self.users[user_id] = index
+class RatchetGroup:    
+    def __init__(self, my_uid, max_members = MAX_GROUP_MEMBERS):
+        self.my_uid = my_uid
+        self.epoch = 0
+        
+        # Tree size calculated from max size
+        self.tree_depth, self.num_leaves = _get_tree_size(max_members)
+        self.total_nodes = (2 * self.num_leaves) - 1
+        
+        self.cached_keys = {} # stored like {epoch: root_key}
+        
+        # Empty tree initialization (as a flat array)
+        self.tree = []
+        for i in range(self.total_nodes):
+            self.tree.append(TreeNode(i))
             
-            if self.local_user == user_id:
-                user_found_check = True
-        
-        if not user_found_check:
-            raise RuntimeError("Panic: User not in welcome package")
-                
-        self.path_user = self._set_direct_path_owned(self.users[self.local_user])
-        
-        if not self.path_user[0].secret:
-             if len(self.users) == 1:
-                self._init_creator_keys(init_secret)        
+        self.leaf_start_index = self.num_leaves - 1
+
+
+    # Tree navigation helper functions - - - -
+    def _parent(self, i: int) -> int:
+        return (i - 1) // 2 if i > 0 else -1
+
+    def _sibling(self, i: int) -> int:
+        if i == 0: return -1
+        return i + 1 if i % 2 != 0 else i - 1
     
+
+    # Get the path of node indices form a node to the root (we use it for getting the leaf to root path)
+    def _get_direct_path(self, node_index): 
+        path = []
+        
+        current = node_index
+        while current >= 0:
+            path.append(current) # Saves the current node
+            current = self._parent(current) # Goes to the parent
+            
+        return path # inkluderer leaf
     
-    def _create_tree_structure(self, current_depth: int):
-        if current_depth == self.tree_depth:
-            node = Node_Own()
+    # Get the root key for encryption to actual messages
+    def get_root_key(self, epoch=None) -> bytes:
+        if epoch is None:
+            epoch = self.epoch
+            
+        if epoch in self.cached_keys:
+            return self.cached_keys[epoch]
+        
+        root_seed = self.tree[0].seed
+        if not root_seed:
+            raise ValueError("Root secret is not established yet!")
+        
+        root_key = CryptoUtils.derive_application_key(root_seed)
+        self.cached_keys[epoch] = root_key
+        return root_key
+
+
+    # Functions for group management - - - -
+    
+    # Inits a group with this user as admin 
+    def create_group(self):
+        
+        # Sets data for the local leaf
+        my_leaf_index = self.leaf_start_index
+        leaf_node = self.tree[my_leaf_index]
+        leaf_node.uid = self.my_uid
+        
+        # Generate initial seed and hash(rachet) up to root
+        current_seed = CryptoUtils.gen_seed()
+        path = self._get_direct_path(my_leaf_index)
+        
+        for idx in path:
+            self.tree[idx].apply_seed(current_seed) # Saves seed for node and derives pub/pri keys
+            
+            # Rachet the seed for next level
+            if idx != 0:
+                current_seed = CryptoUtils.derive_parent_seed(current_seed)
+
+
+
+    # The function add a new user to the tree and returns a WELCOME and COMMIT
+    def add_member(self, new_uid, new_pub_key):
+        new_pub_key_bytes = new_pub_key.public_bytes_raw()
+        
+        # FInd the first free leaf
+        new_leaf_idx = -1
+        for i in range(self.leaf_start_index, self.total_nodes):
+            if self.tree[i].uid is None:
+                new_leaf_idx = i
+                break
+        
+        # If no free leaf
+        if new_leaf_idx == -1:
+            raise NotImplementedError("Group is full!")
+        
+        # Populates data
+        self.tree[new_leaf_idx].uid = new_uid
+        self.tree[new_leaf_idx].pub_key_bytes = new_pub_key_bytes
+
+
+        # Creates commit package 
+        commit_data = self._rotate_keys()
+
+        
+        if self.tree[0].seed:
+            encrypted_root = CryptoUtils.encrypt_to_pub(new_pub_key_bytes, self.tree[0].seed)
         else:
-            node = Node_Member()
-        
-        if not node:
-            raise RuntimeError("Panic: Root is not set")
-        
-        if node:        
-            if current_depth == 0:
-                node.is_leaf = True
-                return node
-            
-            node.child_a = self._create_tree_structure(current_depth - 1)
-            node.child_b = self._create_tree_structure(current_depth - 1)
-            
-            return node
-        
-    def _set_direct_path_owned(self, leaf_index: int):
-        path = [] # liste af nodes
-        choices: list[bool] = []
-        
-        current = self.root # Starter fra toppen
-        target_depth = self.tree_depth # Skal kende dybden
-        if not target_depth:
-            raise RuntimeError("Panic: Target depth is none")
+            encrypted_root = None
+
+        # Serialize the public state of the tree
+        tree_state = []
         
         
-        # Går ned af træet, men gemmer alle nodes som er "stien"
-        for d in range(target_depth):
-            path.append(current)
-            
-            nodes_at_level = 2 ** (target_depth - d) # Bruges til at beregne den vej næste skridt er
-            midpoint = nodes_at_level // 2
-            
-            if not current:
-                raise RuntimeError("Panic: Node is not set")
-            
-            # Binary search agtig system
-            if leaf_index < midpoint:
-                choices.append(False)
-                current = current.child_a
-            else:
-                choices.append(True)
-                current = current.child_b
-                leaf_index -= midpoint
-                
-        path.append(current)
+        # Make a copy of public data
+        for node in self.tree:
+            tree_state.append({
+                "index": node.index,
+                "uid": node.uid,
+                "pub_key": node.pub_key_bytes.hex() if node.pub_key_bytes else None
+            })
+
+        welcome_data = welcome_packet(self.epoch, tree_state, encrypted_root)
+
+        return commit_data, welcome_data
+
+
+
+
+    def join_group(self, welcome_data, my_offline_pri_key):
+        welcome_dict = from_rachet_packet(welcome_data)
+        welcome_pkg = welcome_dict["Payload"]
         
-        reversed_path = reversed(path)
+        self.epoch = welcome_pkg["epoch"]
         
-        new_owned_nodes: list[Node_Own] = []
+        # Fill the tree information form list
+        for node_data in welcome_pkg["tree_state"]:
+            idx = node_data["index"]
+            self.tree[idx].uid = node_data["uid"]
+            if node_data["pub_key"]:
+                self.tree[idx].pub_key_bytes = bytes.fromhex(node_data["pub_key"])
+
+        # Decrypt the root secret
+        root_seed = CryptoUtils.decrypt_with_pri(my_offline_pri_key, welcome_pkg["encrypted_root"])
         
-        for index, node in enumerate(reversed_path):
-            if index == 0:
-                new_node = make_node_owned(node)
-                new_owned_nodes.append(new_node)
-                continue
-            
-            choice: bool = choices.pop()
-            
-            new_node = make_node_owned(node)
-            
-            if not choice:
-                new_node.child_a = new_owned_nodes[-1]
-            else:
-                new_node.child_b = new_owned_nodes[-1]
-                
-            new_owned_nodes.append(new_node)
+        # Applying the decryptet root seed
+        self.tree[0].apply_seed(root_seed)
         
-        self.root = new_owned_nodes[-1]
         
-        # Vi starter fra leaf..root når keys udregnes
-        return  new_owned_nodes
-        
-    def _init_creator_keys(self, secret):
-        current_seed = secret
-        
-        for node in self.path_user:
-            current_seed = node.derive_keys(current_seed)
+
+    # Rachet mechanics - - - -
     
-    def _get_first_empty_leaf(self):
-        if not self.leaf_nodes:
-            return -1
+    # Rotate keys and creates COMMIT packet
+    def _rotate_keys(self):
         
-        for i in range(self.leaf_nodes):
-            leaf = self.get_leaf(i)
-            if not leaf:
-                return -1
-            
-            if not leaf.client_uid:
-                return i # Returns empty client uid
+        # Find my leaf
+        my_leaf_idx = None
+        for i in range(self.leaf_start_index, self.total_nodes):
+            if self.tree[i].uid == self.my_uid:
+                my_leaf_idx = i
+                break
         
-        return -1
-    
-    def _new_key_rotation(self):
-        my_node = self.path_user[0]
+        new_seed = CryptoUtils.gen_seed()
+        path = self._get_direct_path(my_leaf_idx)
         
-        new_seed = crypto.gen_new_leaf_seed()
-        
-        my_node.secret = new_seed
-        
+        commit_operations = []
         current_seed = new_seed
-        for node in self.path_user:
-            current_seed = node.derive_keys(current_seed)
-            
-            
-    def add_new_user(self, uid, pub_key):
-        index = self._get_first_empty_leaf()
-        if (0 > index):
-            raise RuntimeError("Panic: Ik plads til flere brugere")
-        
-        self.users[uid] = index
-        self.fill_leaf(index, uid, pub_key)
-        
-        # MAke a commit and return it to be distrbutet
-        
 
-        
-        
-    # 0 = root, 0 = helt til venstre
-    def get_node_at(self, target_depth: int, index: int):
-        current = self.root
-        
-        
-        for d in range(target_depth):
-            nodes_at_level = 2 ** (target_depth - d)
-            midpoint = nodes_at_level // 2
+        # Applies new seeds up the path and prepares the commit operations for siblings
+        for index in path:
+            self.tree[index].apply_seed(current_seed)
             
-            if not current:
-                raise RuntimeError("Panic: Root is not set")
-            
-            if index < midpoint:
-                current = current.child_a
-            else:
-                current = current.child_b
-                index -= midpoint
+            if index != 0: # If not root, prepare the seed for the parent
+                parent_index = self._parent(index)
+                sibling_index = self._sibling(index)
+                next_seed = CryptoUtils.derive_parent_seed(current_seed)
                 
-        return current
-    
-    def get_leaf(self, index: int) -> Node_Member | Node_Own | None:
-        current = self.root
-        depth = self.tree_depth
-        
-        if not depth:
-            raise RuntimeError("Panic: Tree Cooked")
-            
-        
-        for d in range(depth):
-            nodes_at_level = 2 ** (depth - d)
-            midpoint = nodes_at_level // 2
-            
-            if not current:
-                raise RuntimeError("Panic: Root is not set")
-            
-            if index < midpoint:
-                current = current.child_a
-            else:
-                current = current.child_b
-                index -= midpoint
+                # Encrypt this next_seed for the sibling (so the sibling's subtree can learn the parent's seed)
+                sibling_node = self.tree[sibling_index] # Gets node from index
                 
-        return current
-    
-    
-
-    def fill_leaf(self, index, client_uid, pub_key=None):
-        if not self.tree_depth:
-            raise RuntimeError("Tree Depth: Not assigned")
-        
-        target_node = self.get_node_at(self.tree_depth, index)
-        
-        if isinstance(target_node, Node_Member): 
-            target_node.client_uid = client_uid
-    
-    
-    
-    
-    
-    
-    def apply_msg(self, msg):
-        pass
-    
-
-    
-    
-    
-    
-    def generate_update_packet(self):
-        update_packet = []
-        
-        # Iterate through the Admin's path (excluding the root itself)
-        for i in range(len(self.path_user) - 1):
-            current_node = self.path_user[i]
-            
-            # 1. Get the seed meant for the parent node
-            parent_seed = util.derive_parent_seed(current_node.secret)
-            
-            # 2. Find the sibling of the current_node (You will need a helper 
-            #    function like _get_path_and_siblings from your old code)
-            sibling_node = self._get_sibling_at_level(i)
-            
-            # 3. Encrypt the parent_seed to the sibling's public key
-            if sibling_node and sibling_node.pub_key:
-                ephemeral_pub, nonce, ciphertext = util.encrypt_to_pub(
-                    sibling_node.pub_key, 
-                    parent_seed
-                )
+                if sibling_node.pub_key_bytes: # Only encrypts if sibling exists
+                    encrypted_data = CryptoUtils.encrypt_to_pub(sibling_node.pub_key_bytes, next_seed)
+                    
+                    
+                    commit_operations.append({
+                        "target_node": parent_index, # The node this seed enables access to
+                        "encrypt_for": sibling_index, # The node that is able to decrypt it
+                        "encrypted_data": encrypted_data
+                    })
                 
-                # 4. Append to packet
-                update_packet.append({
-                    "level": i,
-                    "ephemeral_pub": ephemeral_pub.hex(), # Hex for JSON serialization
-                    "nonce": nonce.hex(),
-                    "ciphertext": ciphertext.hex()
-                })
-                
-        return update_packet
+                current_seed = next_seed # Starts next iteration
+        
+        
+        self.epoch += 1 # Epoch changed
+        
+        
+        commit_data = commit_packet(commit_operations, self.epoch)
+        return commit_data
 
 
 
-    def generate_welcome_packet(self, group_id, new_user_pub_key):
-        # 1. Get the newly established root secret
-        root_secret = self.root.secret
+    # Apply new root collected from commit
+    def process_commit(self, commit_data):
+        commit_dict = from_rachet_packet(commit_data)
+        commit_pkg = commit_dict["Payload"]
         
-        # 2. Encrypt the root secret directly to the new user's public key
-        ephemeral_pub, nonce, ciphertext = util.encrypt_to_pub(
-            new_user_pub_key, 
-            root_secret
-        )
-        
-        # 3. Build the Welcome dictionary
-        welcome_msg = {
-            "header": "WELCOME",
-            "group_id": group_id,
-            "users": self.users, # Send the updated roster
-            "encrypted_root": {
-                "ephemeral_pub": ephemeral_pub.hex(),
-                "nonce": nonce.hex(),
-                "ciphertext": ciphertext.hex()
-            }
-        }
-        
-        return welcome_msg
-    
-    
-    def process_update_packet(self, update_packet: list[dict]):
+        self.epoch = commit_pkg["epoch"]
         decrypted_seed = None
-        intersection_level = -1
-        
-        # 1. Iterate through the packet to find the layer meant for our branch
-        for packet_layer in update_packet:
-            level = packet_layer["level"]
+        correct_sibling = -1
+
+        # Find an encrypted seed we can decrypt
+        for operation in commit_pkg["operations"]:
+            target_index = operation["target_node"]
+            encrypt_for_index = operation["encrypt_for"]
             
-            # Ensure the level exists in our local path
-            if level < len(self.path_user):
-                my_node = self.path_user[level]
-                
-                # We can only decrypt if we own the private key at this level
-                if my_node.pri_key:
-                    try:
-                        # Convert the JSON-friendly hex strings back to raw bytes
-                        ephemeral_pub_bytes = bytes.fromhex(packet_layer["ephemeral_pub"])
-                        nonce = bytes.fromhex(packet_layer["nonce"])
-                        ciphertext = bytes.fromhex(packet_layer["ciphertext"])
-                        
-                        # Attempt to decrypt the seed using util.py
-                        decrypted_seed = util.decrypt_with_pri(
-                            my_node.pri_key, 
-                            ephemeral_pub_bytes, 
-                            nonce, 
-                            ciphertext
-                        )
-                        
-                        # If decryption succeeds, the seed is meant for the parent node
-                        intersection_level = level + 1 
-                        break # Stop searching once we find our seed
-                        
-                    except Exception:
-                        # Decryption failed (wrong key for this layer). 
-                        # This is expected; just move to the next layer.
-                        continue
-                        
-        # 2. Safety check: Did we successfully find a key?
+            # Checks the sibling node to see if we have the correct key
+            my_node = self.tree[encrypt_for_index]
+            if my_node.pri_key:
+                try:
+                    decrypted_seed = CryptoUtils.decrypt_with_pri(my_node.pri_key, operation["encrypted_data"])
+                    correct_sibling = target_index
+                    break
+                except Exception:
+                    continue # Key doesn't match
+
         if decrypted_seed is None:
-            raise RuntimeError("Failed to decrypt update packet. Key mismatch.")
+            return 
             
-        # 3. Update the tree from the intersection point up to the root
+        # Apllies the decrypted seed to the sibling node
         current_seed = decrypted_seed
+        path_to_root = self._get_direct_path(correct_sibling)
         
-        for i in range(intersection_level, len(self.path_user)):
-            node = self.path_user[i]
-            
-            # derive_keys() generates the new pri/pub keys and returns the NEXT seed
-            current_seed = node.derive_keys(current_seed)
+        # Wipes old data by applying new seeds
+        for idx in path_to_root:
+            self.tree[idx].apply_seed(current_seed)
+            if idx != 0:
+                current_seed = CryptoUtils.derive_parent_seed(current_seed)
     
     
     
-    
-    
-    
-    
-    # For debugging purpose
-    def print_tree(self, node=None, depth=0):
-        # Start from the root if no node is provided initially
-        if node is None and depth == 0:
-            node = self.root
+    def print_tree_structure(self):
+        print("Current Tree Structure:")
+        for node in self.tree:
+            print(f"Index: {node.index}, UID: {node.uid}, PubKey: {node.pub_key_bytes.hex()[:16] if node.pub_key_bytes else None}")
 
-        # Guard against empty trees or None nodes to satisfy the type checker
-        if node is None:
-            return
 
-        # Create an indentation based on the current depth
-        indent = "\t" * depth
-        
-        # Retrieve public key, private key, and user ID if available
-        pub = node.pub_key if node.pub_key is not None else "None"
-        pri = getattr(node, "pri_key", "None") if getattr(node, "pri_key", None) is not None else "None"
-        uid = node.client_uid if node.is_leaf and node.client_uid else ""
-        
-        # Identify the type of the node (Node_Own or Node_Member)
-        if isinstance(node, Node_Member):
-            node_type = "Member"
-        else:
-            node_type = "Own"
 
-        # Print the current node's information
-        print(f"{indent}({uid}) [{node_type}]: Pub {pub} | Pri {pri}")
 
-        # Recursively print the left and right children if they exist
-        if getattr(node, "child_a", None) is not None:
-            self.print_tree(node.child_a, depth + 1)
-        if getattr(node, "child_b", None) is not None:
-            self.print_tree(node.child_b, depth + 1)
+
+# ==========================================
+# EXAMPLE USAGE
+# ==========================================
+def main():
+    print("--- Ratchet Tree Simulation ---")
+    
+    # 1. Alice creates the group
+    alice = RatchetGroup("alice_uid")
+    alice.create_group()
+    print(f"[Alice] Group created. Root Key: {alice.get_root_key().hex()[:16]}...")
+
+    # 2. Bob generates his offline identity (usually done locally by Bob)
+    bob_pri, bob_pub = CryptoUtils.generate_keypair()
+
+    # 3. Alice adds Bob
+    commit_pkg, welcome_pkg = alice.add_member("bob_uid", bob_pub)
+    commit_dict = from_rachet_packet(commit_pkg)
+    
+    print(f"\n[Alice] Added Bob. Generated COMMIT (Epoch {commit_dict['Payload']['epoch']}) and WELCOME.")
+    print(f"[Alice] New Root Key: {alice.get_root_key().hex()[:16]}...")
+
+    # 4. Bob joins using the Welcome package
+    bob = RatchetGroup("bob_uid")
+    bob.join_group(welcome_pkg, bob_pri)
+    print(f"[Bob] Joined group. Root Key: {bob.get_root_key().hex()[:16]}...")
+    #bob.print_tree_structure()
+    
+    assert alice.get_root_key() == bob.get_root_key(), "Keys do not match!"
+    print("-> Keys match successfully!")
