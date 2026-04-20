@@ -1,2 +1,10 @@
-- Adding the UI
+To-DO
+- Admin Commands?
+- local Admin checking?
 - Adding the intial conn to be RSA
+
+Ai-Gen
+- Network Utils
+- Crypto.py
+- JavaScript
+- Route.py (client)

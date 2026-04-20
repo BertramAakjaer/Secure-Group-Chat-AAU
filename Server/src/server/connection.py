@@ -89,6 +89,7 @@ def handle_client(conn, addr, client_uuid):
             except Exception as e:
                 print(f"[ERROR] Connection lost with {addr}: {e}")
                 break
+            
     finally: # Cleanup
         print(f"[DISCONNECTED] {addr} disconnected.")
         group.remove_client(client_uuid)

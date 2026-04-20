@@ -16,7 +16,8 @@ def _get_tree_size(n):
     
     while (leaf_nodes < n) and (leaf_nodes * 2 <= maximum):
         leaf_nodes *= 2
-        
+    
+    # Returns (tree_depth, num_leaves)
     return (int(math.log2(leaf_nodes)), leaf_nodes)
 
 
@@ -39,10 +40,6 @@ class RatchetGroup:
             
         self.leaf_start_index = self.num_leaves - 1
         
-        # Track newly added member for commit encryption
-        self._last_added_leaf = None
-        self._last_added_pub_key = None
-        
         # Store my offline private key for decrypting direct path secrets
         self._my_offline_pri_key = None
 
@@ -56,7 +53,7 @@ class RatchetGroup:
         return i + 1 if i % 2 != 0 else i - 1
     
 
-    # Get the path of node indices form a node to the root (we use it for getting the leaf to root path)
+    # Get the path from a node to root (including root and node indecies)
     def _get_direct_path(self, node_index): 
         path = []
         
@@ -66,6 +63,36 @@ class RatchetGroup:
             current = self._parent(current) # Goes to the parent
             
         return path # inkluderer leaf
+
+    # UID to leaf, if None then returns first empty leaf
+    def _find_leaf_by_uid(self, uid):
+        for i in range(self.leaf_start_index, self.total_nodes):
+            if self.tree[i].uid == uid:
+                return i
+        return -1
+
+    # Applies a tree state, (both for commit and welcome)
+    def _apply_tree_state(self, tree_state):
+        for node_data in tree_state:
+            index = node_data["index"]
+            
+            self.tree[index].uid = node_data["uid"] # Copies uid
+            
+            if node_data["pub_key"]: # Copies pub_key
+                self.tree[index].pub_key_bytes = bytes.fromhex(node_data["pub_key"])
+            else:
+                self.tree[index].pub_key_bytes = None
+
+    # Takes seed and a start node index and rachet all the way to the root
+    def _apply_seed_to_path(self, start_index, initial_seed):
+        current_seed = initial_seed
+        path = self._get_direct_path(start_index)
+        
+        for index in path: # Goes index by index (starting at node and ending at root)
+            self.tree[index].apply_seed(current_seed)
+            if index != 0:
+                current_seed = CryptoUtils.derive_parent_seed(current_seed)
+                
     
     # Get the root key for encryption to actual messages
     def get_root_key(self, epoch=None) -> bytes:
@@ -89,21 +116,11 @@ class RatchetGroup:
     # Inits a group with this user as admin 
     def create_group(self):
         
-        # Sets data for the local leaf
-        my_leaf_index = self.leaf_start_index
-        leaf_node = self.tree[my_leaf_index]
-        leaf_node.uid = self.my_uid
+        my_leaf_index = self.leaf_start_index # First index in leafs
+        self.tree[my_leaf_index].uid = self.my_uid
         
-        # Generate initial seed and hash(rachet) up to root
-        current_seed = CryptoUtils.gen_seed()
-        path = self._get_direct_path(my_leaf_index)
-        
-        for idx in path:
-            self.tree[idx].apply_seed(current_seed) # Saves seed for node and derives pub/pri keys
-            
-            # Rachet the seed for next level
-            if idx != 0:
-                current_seed = CryptoUtils.derive_parent_seed(current_seed)
+        current_seed = CryptoUtils.gen_seed() # Generates 32-bytes seed
+        self._apply_seed_to_path(my_leaf_index, current_seed) # Rachet new seeds up
 
 
 
@@ -111,37 +128,27 @@ class RatchetGroup:
     def add_member(self, new_uid, new_pub_key):
         new_pub_key_bytes = new_pub_key.public_bytes_raw()
         
-        # FInd the first free leaf
-        new_leaf_idx = -1
-        for i in range(self.leaf_start_index, self.total_nodes):
-            if self.tree[i].uid is None:
-                new_leaf_idx = i
-                break
-        
-        # If no free leaf
+        # Find the first free leaf
+        new_leaf_idx = self._find_leaf_by_uid(None)
         if new_leaf_idx == -1:
             raise NotImplementedError("Group is full!")
+        
         
         # Populates data
         self.tree[new_leaf_idx].uid = new_uid
         self.tree[new_leaf_idx].pub_key_bytes = new_pub_key_bytes
         
-        # Track the newly added member so _rotate_keys can encrypt for them
-        self._last_added_leaf = new_leaf_idx
-        self._last_added_pub_key = new_pub_key_bytes
 
         # Creates commit package 
         commit_data = self._rotate_keys()
 
         
+        encrypted_root = None
         if self.tree[0].seed:
             encrypted_root = CryptoUtils.encrypt_to_pub(new_pub_key_bytes, self.tree[0].seed)
-        else:
-            encrypted_root = None
 
         # Serialize the public state of the tree for welcome packet
         tree_state = self._serialize_tree_state()
-
         welcome_data = welcome_packet(self.epoch, tree_state, encrypted_root)
 
         return commit_data, welcome_data
@@ -149,13 +156,9 @@ class RatchetGroup:
     
     # Remove a user from the tree and rotate keys
     def remove_member(self, uid_to_remove):
-        # Find the leaf to remove
-        leaf_to_remove_idx = -1
-        for i in range(self.leaf_start_index, self.total_nodes):
-            if self.tree[i].uid == uid_to_remove:
-                leaf_to_remove_idx = i
-                break
+        leaf_to_remove_idx = self._find_leaf_by_uid(uid_to_remove)
         
+        # If not UID is found
         if leaf_to_remove_idx == -1:
             raise ValueError(f"User {uid_to_remove} not found in group!")
         
@@ -164,9 +167,7 @@ class RatchetGroup:
         self.tree[leaf_to_remove_idx].pub_key_bytes = None
         
         # Rotate keys to update the tree
-        commit_data = self._rotate_keys()
-        return commit_data
-
+        return self._rotate_keys()
 
 
 
@@ -174,17 +175,14 @@ class RatchetGroup:
         welcome_dict = from_rachet_packet(welcome_data)
         welcome_pkg = welcome_dict["Payload"]
         
+        # Store current epoch
         self.epoch = welcome_pkg["epoch"]
         
         # Store priv key
         self._my_offline_pri_key = my_offline_pri_key
         
         # Fill the tree information form list
-        for node_data in welcome_pkg["tree_state"]:
-            idx = node_data["index"]
-            self.tree[idx].uid = node_data["uid"]
-            if node_data["pub_key"]:
-                self.tree[idx].pub_key_bytes = bytes.fromhex(node_data["pub_key"])
+        self._apply_tree_state(welcome_pkg["tree_state"])
 
         # Decrypt the root secret
         root_seed = CryptoUtils.decrypt_with_pri(my_offline_pri_key, welcome_pkg["encrypted_root"])
@@ -210,16 +208,12 @@ class RatchetGroup:
     # Rotate keys and creates COMMIT packet
     def _rotate_keys(self):
         
-        # Find my leaf
-        my_leaf_idx = None
-        for i in range(self.leaf_start_index, self.total_nodes):
-            if self.tree[i].uid == self.my_uid:
-                my_leaf_idx = i
-                break
+        # Recieving my leaf
+        my_leaf_idx = self._find_leaf_by_uid(self.my_uid)
         
         new_seed = CryptoUtils.gen_seed()
         path = self._get_direct_path(my_leaf_idx)
-        path_set = set(path)  # For efficient lookup
+        path_set = set(path)  # Faster index search
         
         commit_operations = []
         current_seed = new_seed
@@ -238,7 +232,6 @@ class RatchetGroup:
                 
                 if sibling_node.pub_key_bytes: # Only encrypts if sibling exists
                     encrypted_data = CryptoUtils.encrypt_to_pub(sibling_node.pub_key_bytes, next_seed)
-                    
                     
                     commit_operations.append({
                         "target_node": parent_index, # The node this seed enables access to
@@ -259,6 +252,8 @@ class RatchetGroup:
             # Find all active members and send them direct path secrets if they're not on this path
             for leaf_idx in range(self.leaf_start_index, self.total_nodes):
                 leaf_uid = self.tree[leaf_idx].uid
+                
+                # If user is not touched by path
                 if leaf_uid and leaf_idx not in path_set and self.tree[leaf_idx].pub_key_bytes:
                     encrypted_root = CryptoUtils.encrypt_to_pub(self.tree[leaf_idx].pub_key_bytes, root_seed)
                     direct_path_secrets.append({
@@ -278,39 +273,41 @@ class RatchetGroup:
         commit_dict = from_rachet_packet(commit_data)
         commit_pkg = commit_dict["Payload"]
         
-        self.epoch = commit_pkg["epoch"]
+        self.epoch = commit_pkg["epoch"] # Used for updating the new root key to the cache
         
-        # Update tree state if provided (for when new members are added)
+        
+        # Updates tree state = Sørger for at alle træer har samme struktur
+        # Og at de samme leaf noder med 
         if commit_pkg.get("tree_state"):
-            for node_data in commit_pkg["tree_state"]:
-                idx = node_data["index"]
-                self.tree[idx].uid = node_data["uid"]
-                if node_data["pub_key"]:
-                    self.tree[idx].pub_key_bytes = bytes.fromhex(node_data["pub_key"])
+            self._apply_tree_state(commit_pkg["tree_state"])
         
-        # Check if there's a direct encryption for my leaf
+        # Sørger for at nye leafs også har en krypteret nøgle
+        # Tjekker om den eksisterer
         if commit_pkg.get("direct_path_secrets") and self._my_offline_pri_key:
+            
             direct_secrets = commit_pkg["direct_path_secrets"]
+            
             if not isinstance(direct_secrets, list):
                 direct_secrets = [direct_secrets] if direct_secrets else []
             
             # Find my leaf
-            my_leaf_idx = None
-            for i in range(self.leaf_start_index, self.total_nodes):
-                if self.tree[i].uid == self.my_uid:
-                    my_leaf_idx = i
-                    break
+            my_leaf_index = self._find_leaf_by_uid(self.my_uid)
             
-            # Look for a direct secret for my leaf
+            # Look for a direct secret for my leaf (if this uses has just joined)
             for direct_secret in direct_secrets:
-                if my_leaf_idx is not None and direct_secret["leaf_index"] == my_leaf_idx:
+                if my_leaf_index is not None and direct_secret["leaf_index"] == my_leaf_index:
+                    
+                    # Hvis vores nøgle ikke er korrekt vil koden fejle
                     try:
                         root_seed = CryptoUtils.decrypt_with_pri(self._my_offline_pri_key, direct_secret["encrypted_root"])
                         self.tree[0].apply_seed(root_seed)
                         return  # Successfully got root from direct secret
+                    
                     except Exception:
                         pass  # Decryption failed, continue to regular process
         
+        
+        # Looking for sibling with encrypted key
         decrypted_seed = None
         correct_sibling = -1
 
@@ -332,18 +329,11 @@ class RatchetGroup:
         if decrypted_seed is None:
             return 
             
-        # Apllies the decrypted seed to the sibling node
-        current_seed = decrypted_seed
-        path_to_root = self._get_direct_path(correct_sibling)
+        # Apply the decrypted seed and wipe old data up the path
+        self._apply_seed_to_path(correct_sibling, decrypted_seed)
         
-        # Wipes old data by applying new seeds
-        for idx in path_to_root:
-            self.tree[idx].apply_seed(current_seed)
-            if idx != 0:
-                current_seed = CryptoUtils.derive_parent_seed(current_seed)
-                
-        
-        self.get_root_key() # Caches the current key
+        # Caches the current key
+        self.get_root_key() 
     
     
     
@@ -351,3 +341,4 @@ class RatchetGroup:
         print("Current Tree Structure:")
         for node in self.tree:
             print(f"Index: {node.index}, UID: {node.uid}, PubKey: {node.pub_key_bytes.hex()[:16] if node.pub_key_bytes else None}")
+        

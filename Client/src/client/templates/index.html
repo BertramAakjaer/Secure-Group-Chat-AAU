@@ -1,77 +1,159 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Secure Group Chat Client</title>
+    <!-- Link to the external CSS file -->
+    <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <h1>Secure Group Chat Client</h1>
+    <!-- ================================================= -->
+    <!-- LOBBY WRAPPER (Centered sections)                 -->
+    <!-- ================================================= -->
+    <div id="lobby-wrapper">
+      <!-- 1. LOGIN SECTION -->
+      <div id="login-section" class="main-box">
+        <h1 class="welcome-title">Secure Chat</h1>
 
-    <div id="user-info" style="display: none">
-      <p>
-        User: <span id="current-user"></span> (<span id="user-uuid"></span>)
-      </p>
+        <div class="input-group">
+          <label>Username:</label>
+          <input type="text" id="username" placeholder="Enter username" />
+        </div>
+
+        <div class="input-group">
+          <label>Server IP:</label>
+          <input
+            type="text"
+            id="server-ip"
+            placeholder="127.0.0.1"
+            value="127.0.0.1"
+          />
+        </div>
+
+        <button class="btn-primary" onclick="connectToServer()">Connect</button>
+        <p id="login-status" class="error-msg"></p>
+      </div>
+
+      <!-- 2. GROUP CHOICE SECTION -->
+      <div id="group-section" class="main-box" style="display: none">
+        <h1 class="welcome-title">Welcome</h1>
+        <p class="info-text">
+          Logged in as: <strong id="current-user"></strong><br /><small
+            >UUID: <span id="user-uuid"></span
+          ></small>
+        </p>
+
+        <div class="button-group">
+          <button
+            class="btn btn-create"
+            onclick="showSection('create-group-section')"
+          >
+            Create Group Chat
+          </button>
+          <button
+            class="btn btn-join"
+            onclick="showSection('join-group-section')"
+          >
+            Join Group Chat
+          </button>
+        </div>
+        <p id="group-status" class="error-msg"></p>
+      </div>
+
+      <!-- 3. CREATE GROUP SECTION -->
+      <div id="create-group-section" class="main-box" style="display: none">
+        <h2>Create Group Chat</h2>
+
+        <div class="input-group" style="margin-top: 20px">
+          <label>Group Name:</label>
+          <input type="text" id="group-name" placeholder="Enter group name" />
+        </div>
+
+        <button class="btn-primary" onclick="createGroup()">Create</button>
+        <button class="btn-secondary" onclick="showSection('group-section')">
+          Back
+        </button>
+      </div>
+
+      <!-- 4. JOIN GROUP SECTION -->
+      <div id="join-group-section" class="main-box" style="display: none">
+        <h2>Join Group Chat</h2>
+
+        <div class="input-group" style="margin-top: 20px">
+          <label>Group UUID:</label>
+          <input type="text" id="group-uuid" placeholder="Enter group UUID" />
+        </div>
+
+        <button class="btn-primary" onclick="joinGroup()">Join</button>
+        <button class="btn-secondary" onclick="showSection('group-section')">
+          Back
+        </button>
+      </div>
+
+      <!-- 5. WAITING SECTION -->
+      <div id="waiting-section" class="main-box" style="display: none">
+        <h2>Waiting...</h2>
+        <p class="info-text">
+          Waiting for the group admin to accept your join request. Please hold
+          on.
+        </p>
+        <button class="btn-secondary" onclick="disconnect()">Disconnect</button>
+      </div>
     </div>
 
-    <div id="login-section">
-      <label>Username:</label>
-      <input type="text" id="username" placeholder="Enter username" />
-      <label>Server IP:</label>
-      <input
-        type="text"
-        id="server-ip"
-        placeholder="127.0.0.1"
-        value="127.0.0.1"
-      />
-      <button onclick="connectToServer()">Connect</button>
-      <p id="login-status" style="color: red"></p>
+    <!-- ================================================= -->
+    <!-- CHAT WRAPPER (Full screen layout)                 -->
+    <!-- ================================================= -->
+    <div id="chat-wrapper">
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <h2>Group Chat</h2>
+        <p><strong>ID:</strong> <span id="display-group-uuid"></span></p>
+        <p style="margin-bottom: 20px">
+          Share the group ID to let others join.
+        </p>
+
+        <h3>Session Info</h3>
+        <ul>
+          <li><strong>You:</strong> <span id="sidebar-username"></span></li>
+        </ul>
+
+        <!-- Push disconnect to bottom -->
+        <div style="margin-top: auto; padding-top: 20px">
+          <button
+            class="btn-secondary"
+            style="padding: 10px; font-size: 14px"
+            onclick="disconnect()"
+          >
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- MAIN CHAT AREA -->
+      <div class="chat-container">
+        <div class="chat-header">
+          <h2 id="chat-title">Connected to Group</h2>
+        </div>
+
+        <div class="messages" id="messages-container">
+          <!-- Messages will be injected here by JS -->
+        </div>
+
+        <div class="input-area">
+          <input
+            type="text"
+            id="messageInput"
+            placeholder="Type a message to send..."
+            autocomplete="off"
+          />
+          <button onclick="sendMessage()">Send</button>
+        </div>
+      </div>
     </div>
 
-    <div id="group-section" style="display: none">
-      <h2>Choose Action</h2>
-      <button onclick="showCreateGroup()">Create Group Chat</button>
-      <button onclick="showJoinGroup()">Join Group Chat</button>
-      <p id="group-status" style="color: red"></p>
-    </div>
-
-    <div id="create-group-section" style="display: none">
-      <h2>Create Group Chat</h2>
-      <label>Group Name:</label>
-      <input type="text" id="group-name" placeholder="Enter group name" />
-      <button onclick="createGroup()">Create</button>
-      <button onclick="backToGroupChoice()">Back</button>
-    </div>
-
-    <div id="join-group-section" style="display: none">
-      <h2>Join Group Chat</h2>
-      <label>Group UUID:</label>
-      <input type="text" id="group-uuid" placeholder="Enter group UUID" />
-      <button onclick="joinGroup()">Join</button>
-      <button onclick="backToGroupChoice()">Back</button>
-    </div>
-
-    <div id="waiting-section" style="display: none">
-      <h2>Waiting for Approval</h2>
-      <p>Waiting for the group admin to accept your join request...</p>
-      <button onclick="disconnect()">Disconnect</button>
-    </div>
-
-    <div id="chat-section" style="display: none">
-      <h2 id="chat-title">Connected to Group</h2>
-
-      <textarea id="chatbox" rows="20" cols="60" readonly></textarea>
-      <br /><br />
-
-      <!-- Input and Send mechanisms -->
-      <input
-        type="text"
-        id="messageInput"
-        placeholder="Type a message to send..."
-        size="50"
-      />
-      <button onclick="sendMessage()">Send</button>
-      <br /><br />
-    </div>
-
+    <!-- Link to the external JavaScript file -->
     <script src="/static/script.js"></script>
   </body>
 </html>
