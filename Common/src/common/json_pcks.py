@@ -86,6 +86,7 @@ def join_requested_packet(): # Send from server to user that their request is wa
     }
     return _to_json(packet)
 
+
 def join_request_to_admin_packet(pub_key_b64, user_uuid, username): # Send from server to admin about a new join request
     packet = {
         "Type": PackageType.JOIN_REQUEST_TO_ADMIN.value,
