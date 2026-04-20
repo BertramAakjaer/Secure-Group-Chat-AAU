@@ -17,7 +17,7 @@ def start_server(ip, port):
     server.settimeout(SERVER_SOCKET_TIMEOUT)
     
     print(f"[STARTING] Server is starting on {ip}:{port}")
-        
+    
     try:
         while True:
             try:

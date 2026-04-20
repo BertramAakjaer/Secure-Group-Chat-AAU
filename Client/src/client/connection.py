@@ -181,7 +181,6 @@ def handle_incoming_message(data):
 
 
 
-
 def send_message(msg):
     if msg and session.is_connected and client_socket:
         try:
@@ -190,11 +189,9 @@ def send_message(msg):
             
             
             if session.group_uuid and session.rachet_group:
-                
                 cipher_msg = CryptoUtils.encrypt_message(session.rachet_group.get_root_key(), msg)
                 packet = group_msg_packet(cipher_msg, session.uuid, session.group_uuid, session.rachet_group.epoch, session.username)
                 send_packet(packet)
-                
                 
             # Shows the message for the sender
             session.messages.append(f"You: {msg}")
@@ -231,8 +228,6 @@ def join_group(group_uuid):
         except Exception as e:
             return {"status": "error", "error": str(e)}
     return {"status": "failed", "reason": "Not connected or already in group"}
-
-
 
 
 

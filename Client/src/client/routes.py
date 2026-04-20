@@ -2,9 +2,7 @@ from flask import Flask, render_template, request, jsonify
 
 import client.connection as connection
 
-
 app = Flask(__name__)
-
 
 @app.route('/')
 def index():

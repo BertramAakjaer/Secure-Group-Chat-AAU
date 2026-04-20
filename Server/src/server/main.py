@@ -1,6 +1,5 @@
 import argparse
 
-
 from server.server import start_server
 from common.config import SERVER_PORT
 

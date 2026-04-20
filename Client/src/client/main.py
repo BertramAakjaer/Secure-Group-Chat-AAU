@@ -3,7 +3,6 @@ import argparse
 from client.client import start_client
 from common.config import CLIENT_UI_PORT
 
-
 def main():
     parser = argparse.ArgumentParser(description="Client to connect to a E2EE group chat")
 
