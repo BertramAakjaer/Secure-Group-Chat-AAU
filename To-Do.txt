@@ -1,15 +1,10 @@
 To-DO
 - Admin Commands?
-- Logging root key
 - local Admin checking?
-- Adding the UI
 - Adding the intial conn to be RSA
-- Test (maybe?)
-
 
 Ai-Gen
 - Network Utils
 - Crypto.py
 - JavaScript
 - Route.py (client)
-- 

@@ -53,7 +53,7 @@ class Securehandshake:
         )
 
         #Envelope: lets encode our key with others rsa key.
-        #noboyd can open this envolope.
+        #nobody can open this envolope.
         ready_envelope = arrival_key.encrypt(
             our_dh,
             padding.OAEP(
@@ -63,6 +63,8 @@ class Securehandshake:
             )
             )
         return ready_envelope
+    
+    
     def last_key_create(self, come_envelope):
         """
         we finis handshake and find aes key

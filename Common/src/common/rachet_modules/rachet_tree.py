@@ -341,3 +341,4 @@ class RatchetGroup:
         print("Current Tree Structure:")
         for node in self.tree:
             print(f"Index: {node.index}, UID: {node.uid}, PubKey: {node.pub_key_bytes.hex()[:16] if node.pub_key_bytes else None}")
+        

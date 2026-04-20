@@ -199,10 +199,6 @@ def send_message(msg):
             # Shows the message for the sender
             session.messages.append(f"You: {msg}")
             
-            # TEST
-            if session.rachet_group:
-                print(f"Current root key: {session.rachet_group.get_root_key().hex()[:16]}")
-            
             return {"status": "sent"}
         
         except Exception as e:

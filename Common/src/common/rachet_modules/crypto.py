@@ -7,9 +7,12 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 class CryptoUtils:
+
     @staticmethod
     def gen_seed() -> bytes:
         return os.urandom(32)
+
+
 
     @staticmethod
     def derive_keypair(seed: bytes) -> tuple[x25519.X25519PrivateKey, x25519.X25519PublicKey]:
@@ -18,26 +21,37 @@ class CryptoUtils:
         pri_key = x25519.X25519PrivateKey.from_private_bytes(key_bytes)
         return pri_key, pri_key.public_key()
 
+
+
     @staticmethod
     def generate_keypair():
         pri_key = x25519.X25519PrivateKey.generate()
         pub_key = pri_key.public_key()
         return pri_key, pub_key
+
+
     
     @staticmethod
     def from_bytes_get_pub_key(raw_bytes):
         pub_key = x25519.X25519PublicKey.from_public_bytes(raw_bytes)
         return pub_key
 
+
+
     @staticmethod
     def derive_parent_seed(child_seed: bytes) -> bytes:
         hkdf = HKDF(algorithm=hashes.SHA256(), length=32, salt=None, info=b"parent_seed")
         return hkdf.derive(child_seed)
 
+
+
     @staticmethod
     def derive_application_key(secret: bytes, info: bytes = b"app_messaging_key", length: int = 32) -> bytes:
         hkdf = HKDF(algorithm=hashes.SHA256(), length=length, salt=None, info=info)
         return hkdf.derive(secret)
+
+
+
 
     @staticmethod
     def encrypt_to_pub(recipient_pub_key_bytes: bytes, secret: bytes) -> dict:
@@ -56,6 +70,9 @@ class CryptoUtils:
             "nonce": nonce.hex(),
             "ciphertext": ciphertext.hex()
         }
+
+
+
 
     @staticmethod
     def decrypt_with_pri(my_pri_key: x25519.X25519PrivateKey, encrypted_data: dict) -> bytes:
