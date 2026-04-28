@@ -81,8 +81,8 @@ uv add --package server <libary_here>
 **Building Program (demo not tested yet!)**
 ```bash
 # Build the Client
-uv run pyinstaller --onefile --noconsole --name "SecureChatClient" Client/src/client/main.py
+uv run pyinstaller --onefile --noconsole --add-data "Client/src/client/templates:client/templates" --add-data "Client/src/client/static:client/static" --name "SecureChatClient" Client/src/client/main.py
 
 # Build the Server
-uv run pyinstaller --onefile --noconsole --name "SecureChatServer" Server/src/client/main.py
+uv run pyinstaller --onefile --name "SecureChatServer" Server/src/server/main.py
 ```
