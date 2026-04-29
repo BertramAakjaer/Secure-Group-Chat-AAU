@@ -9,6 +9,7 @@ def main():
     # Valgfrie "flag"
     parser.add_argument("--local", action="store_true", help="Run on 127.0.0.1 if set, otherwise 0.0.0.0")
     parser.add_argument("-p", "--port", type=int, default=SERVER_PORT, help=f"Optional port (default: {SERVER_PORT})")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Log all sent packets to json files")
 
     args = parser.parse_args()
     
@@ -16,4 +17,4 @@ def main():
     host_port = args.port
 
     # Initalisere og kører server objektet
-    start_server(ip=host_ip, port=host_port)
+    start_server(ip=host_ip, port=host_port, verbose=args.verbose)
