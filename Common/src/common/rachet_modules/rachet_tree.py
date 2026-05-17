@@ -2,7 +2,7 @@ import math
 
 from common.rachet_modules.node import TreeNode
 from common.rachet_modules.rachet_pcks import welcome_packet, commit_packet, from_rachet_packet
-from common.rachet_modules.crypto import CryptoUtils
+from common.rachet_modules.crypto_engine import crypt_engine
 
 from common.config import MAX_GROUP_MEMBERS
 
@@ -91,7 +91,7 @@ class RatchetGroup:
         for index in path: # Goes index by index (starting at node and ending at root)
             self.tree[index].apply_seed(current_seed)
             if index != 0:
-                current_seed = CryptoUtils.derive_parent_seed(current_seed)
+                current_seed = crypt_engine.derive_parent_seed(current_seed)
                 
     
     # Get the root key for encryption to actual messages
@@ -106,7 +106,7 @@ class RatchetGroup:
         if not root_seed:
             raise ValueError("Root secret is not established yet!")
         
-        root_key = CryptoUtils.derive_application_key(root_seed)
+        root_key = crypt_engine.derive_application_key(root_seed)
         self.cached_keys[epoch] = root_key
         return root_key
 
@@ -119,7 +119,7 @@ class RatchetGroup:
         my_leaf_index = self.leaf_start_index # First index in leafs
         self.tree[my_leaf_index].uid = self.my_uid
         
-        current_seed = CryptoUtils.gen_seed() # Generates 32-bytes seed
+        current_seed = crypt_engine.gen_seed() # Generates 32-bytes seed
         self._apply_seed_to_path(my_leaf_index, current_seed) # Rachet new seeds up
 
 
@@ -145,7 +145,8 @@ class RatchetGroup:
         
         encrypted_root = None
         if self.tree[0].seed:
-            encrypted_root = CryptoUtils.encrypt_to_pub(new_pub_key_bytes, self.tree[0].seed)
+            peer_pub_key = crypt_engine.asym.load_public_key(new_pub_key_bytes)
+            encrypted_root = crypt_engine.asym.encapsulate_secret(None, peer_pub_key, self.tree[0].seed)
 
         # Serialize the public state of the tree for welcome packet
         tree_state = self._serialize_tree_state()
@@ -185,7 +186,7 @@ class RatchetGroup:
         self._apply_tree_state(welcome_pkg["tree_state"])
 
         # Decrypt the root secret
-        root_seed = CryptoUtils.decrypt_with_pri(my_offline_pri_key, welcome_pkg["encrypted_root"])
+        root_seed = crypt_engine.asym.decapsulate_secret(my_offline_pri_key, welcome_pkg["encrypted_root"])
         
         # Applying the decryptet root seed
         self.tree[0].apply_seed(root_seed)
@@ -211,7 +212,7 @@ class RatchetGroup:
         # Recieving my leaf
         my_leaf_idx = self._find_leaf_by_uid(self.my_uid)
         
-        new_seed = CryptoUtils.gen_seed()
+        new_seed = crypt_engine.gen_seed()
         path = self._get_direct_path(my_leaf_idx)
         path_set = set(path)  # Faster index search
         
@@ -225,13 +226,14 @@ class RatchetGroup:
             if index != 0: # If not root, prepare the seed for the parent
                 parent_index = self._parent(index)
                 sibling_index = self._sibling(index)
-                next_seed = CryptoUtils.derive_parent_seed(current_seed)
+                next_seed = crypt_engine.derive_parent_seed(current_seed)
                 
                 # Encrypt this next_seed for the sibling (so the sibling's subtree can learn the parent's seed)
                 sibling_node = self.tree[sibling_index] # Gets node from index
                 
                 if sibling_node.pub_key_bytes: # Only encrypts if sibling exists
-                    encrypted_data = CryptoUtils.encrypt_to_pub(sibling_node.pub_key_bytes, next_seed)
+                    peer_pub_key = crypt_engine.asym.load_public_key(sibling_node.pub_key_bytes)
+                    encrypted_data = crypt_engine.asym.encapsulate_secret(None, peer_pub_key, next_seed)
                     
                     commit_operations.append({
                         "target_node": parent_index, # The node this seed enables access to
@@ -255,7 +257,8 @@ class RatchetGroup:
                 
                 # If user is not touched by path
                 if leaf_uid and leaf_idx not in path_set and self.tree[leaf_idx].pub_key_bytes:
-                    encrypted_root = CryptoUtils.encrypt_to_pub(self.tree[leaf_idx].pub_key_bytes, root_seed)
+                    leaf_pub_key = crypt_engine.asym.load_public_key(self.tree[leaf_idx].pub_key_bytes)
+                    encrypted_root = crypt_engine.asym.encapsulate_secret(None, leaf_pub_key, root_seed)
                     direct_path_secrets.append({
                         "leaf_index": leaf_idx,
                         "encrypted_root": encrypted_root
@@ -299,7 +302,7 @@ class RatchetGroup:
                     
                     # Hvis vores nøgle ikke er korrekt vil koden fejle
                     try:
-                        root_seed = CryptoUtils.decrypt_with_pri(self._my_offline_pri_key, direct_secret["encrypted_root"])
+                        root_seed = crypt_engine.asym.decapsulate_secret(self._my_offline_pri_key, direct_secret["encrypted_root"])
                         self.tree[0].apply_seed(root_seed)
                         return  # Successfully got root from direct secret
                     
@@ -320,7 +323,7 @@ class RatchetGroup:
             my_node = self.tree[encrypt_for_index]
             if my_node.pri_key:
                 try:
-                    decrypted_seed = CryptoUtils.decrypt_with_pri(my_node.pri_key, operation["encrypted_data"])
+                    decrypted_seed = crypt_engine.asym.decapsulate_secret(my_node.pri_key, operation["encrypted_data"])
                     correct_sibling = target_index
                     break
                 except Exception:

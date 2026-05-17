@@ -1,4 +1,4 @@
-from common.rachet_modules.crypto import CryptoUtils
+from common.rachet_modules.crypto_engine import crypt_engine
 
 class TreeNode:
     def __init__(self, index: int):
@@ -13,8 +13,8 @@ class TreeNode:
 
     def apply_seed(self, seed: bytes): # Sets a new seed and derives keys
         self.seed = seed
-        self.pri_key, pub_key = CryptoUtils.derive_keypair(seed)
-        self.pub_key_bytes = pub_key.public_bytes_raw()
+        self.pri_key, pub_key = crypt_engine.asym.derive_keypair(seed)
+        self.pub_key_bytes = crypt_engine.asym.get_public_bytes(pub_key)
 
 
     def wipe_private_data(self): # When removing an account or changing the root
