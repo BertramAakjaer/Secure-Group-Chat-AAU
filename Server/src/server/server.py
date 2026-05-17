@@ -3,10 +3,13 @@ import threading
 
 from common.config import SERVER_SOCKET_TIMEOUT
 from common.utils import random_user_uid
+from common.network_utils import init_logger
 
 import server.connection as connection
 
-def start_server(ip, port):
+def start_server(ip, port, verbose=False):
+    init_logger(verbose, "server")
+    
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     # Frees up the used port better after closing
@@ -17,7 +20,7 @@ def start_server(ip, port):
     server.settimeout(SERVER_SOCKET_TIMEOUT)
     
     print(f"[STARTING] Server is starting on {ip}:{port}")
-        
+    
     try:
         while True:
             try:

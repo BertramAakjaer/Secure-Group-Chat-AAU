@@ -15,7 +15,6 @@ def _to_json(packet):
 
 # Json strcuture - -
 
-
 # Info packets
 def new_UUID_packet(UUID): # From server to client with their server givin UUID
     packet = {
@@ -36,10 +35,6 @@ def user_info_packet(uuid, username):
         },
     }
     return _to_json(packet)
-
-
-
-
 
 
 
@@ -122,8 +117,6 @@ def join_denied_packet(): # From server to user after deny
 
 
 
-
-
 # Regular Message packet
 
 def group_msg_packet(message, sender_uuid, group_uuid, epoch=None, username=None):
@@ -143,8 +136,6 @@ def group_msg_packet(message, sender_uuid, group_uuid, epoch=None, username=None
     }
     
     return _to_json(packet)
-
-
 
 
 

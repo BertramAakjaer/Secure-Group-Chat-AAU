@@ -4,7 +4,7 @@ import socket, threading, json
 from common.utils import PackageType
 from common.json_pcks import from_json, user_info_packet, group_msg_packet, create_group_packet, join_group_packet, join_accepted_packet, commit_packet
 from common.config import TCP_BUFFER
-from common.rachet_modules.crypto import CryptoUtils
+from common.rachet_modules.crypto_engine import crypt_engine
 from common.rachet_modules.rachet_tree import RatchetGroup
 
 from common.network_utils import recv_big, send_big
@@ -15,7 +15,7 @@ import client.data_structs as data_structs
 client_socket = None
 tcp_listening_thread = None
 
-priv_key, pub_key = CryptoUtils.generate_keypair()
+priv_key, pub_key = crypt_engine.asym.generate_keypair()
 session = data_structs.SessionInfo()
 
 # Modtagning a TCP data
@@ -163,7 +163,7 @@ def handle_incoming_message(data):
                 epoch = payload.get("epoch", None)
                 
                 if session.rachet_group and epoch:
-                    message = CryptoUtils.decrypt_string(session.rachet_group.get_root_key(epoch), cipher)
+                    message = crypt_engine.decrypt_message(session.rachet_group.get_root_key(epoch), cipher)
                     session.messages.append(f"[{username}] {message}")
                 else:
                     message = cipher
@@ -181,7 +181,6 @@ def handle_incoming_message(data):
 
 
 
-
 def send_message(msg):
     if msg and session.is_connected and client_socket:
         try:
@@ -190,11 +189,9 @@ def send_message(msg):
             
             
             if session.group_uuid and session.rachet_group:
-                
-                cipher_msg = CryptoUtils.encrypt_message(session.rachet_group.get_root_key(), msg)
+                cipher_msg = crypt_engine.encrypt_message(session.rachet_group.get_root_key(), msg)
                 packet = group_msg_packet(cipher_msg, session.uuid, session.group_uuid, session.rachet_group.epoch, session.username)
                 send_packet(packet)
-                
                 
             # Shows the message for the sender
             session.messages.append(f"You: {msg}")
@@ -234,8 +231,6 @@ def join_group(group_uuid):
 
 
 
-
-
 # Admin commands
 def handle_admin_command(message):
     parts = message.strip().split()
@@ -249,7 +244,7 @@ def handle_admin_command(message):
         pub_key_b64 = session.waiting_requests.pop(target_uuid)
         pub_raw_bytes = base64.b64decode(pub_key_b64.encode('utf-8'))
         
-        pub_key = CryptoUtils.from_bytes_get_pub_key(pub_raw_bytes)
+        pub_key = crypt_engine.asym.load_public_key(pub_raw_bytes)
         
         commit_data, welcome_data = session.rachet_group.add_member(target_uuid, pub_key)
         

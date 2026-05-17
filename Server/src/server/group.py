@@ -30,7 +30,6 @@ def _send_to_uuid(target_uuid, packet):
         print(f"[ERROR] Failed to send packet to {target_uuid}")
         return False
 
-    
 
 # Group related functions - - - -
 
@@ -83,7 +82,6 @@ def accept_join(group_uuid, target_uuid, admin_uuid, welcome_data):
     # If group exists and admin is actual admin
     if group_uuid not in groups or groups[group_uuid]['admin'] != admin_uuid:
         return False
-    
     
     if target_uuid in groups[group_uuid]['pending']:
         groups[group_uuid]['pending'].remove(target_uuid)
@@ -145,33 +143,6 @@ def broadcast_to_group(group_uuid, message, sender_uuid, epoch=None):
         if member_uuid in clients and clients[member_uuid][2] == group_uuid:
             _send_to_uuid(member_uuid, packet)
 
-
-# Admin command handling - - - -
-
-# Done with !command arg
-def handle_admin_command(message, sender_uuid):
-    parts = message.strip().split()
-    if len(parts) < 2:
-        return False
-    
-    command = parts[0].lower()
-    target_uuid = parts[1]
-    
-    # Find the group where sender is admin
-    sender_group = None
-    for g_uuid, g_data in groups.items():
-        if g_data['admin'] == sender_uuid:
-            sender_group = g_uuid
-            break
-    
-    if not sender_group:
-        return False
-    
-    elif command == "!deny":
-        deny_join(sender_group, target_uuid, sender_uuid)
-        return True
-    
-    return False
 
 
 # Helper function to remove client
