@@ -26,27 +26,26 @@ def _to_rachet_packet(packet):
 
 # - - - - - -
 
-def welcome_packet(epoch, tree_state, encrypted_root):
+def welcome_packet(epoch, tree_state, encrypted_leaf_secret):
     packet = {
         "Type": RachetTypes.WELCOME.value,
         "Payload": {
             "epoch": epoch,
             "tree_state": tree_state,
-            "encrypted_root": encrypted_root,
+            "encrypted_leaf_secret": encrypted_leaf_secret,
         },
     }
     return _to_rachet_packet(packet)
 
 
 
-def commit_packet(operations, epoch, tree_state=None, direct_path_secrets=None):
+def commit_packet(operations, epoch, tree_state=None):
     packet = {
         "Type": RachetTypes.COMMIT.value,
         "Payload": {
             "operations": operations,
             "epoch": epoch,
             "tree_state": tree_state,
-            "direct_path_secrets": direct_path_secrets if isinstance(direct_path_secrets, list) else ([direct_path_secrets] if direct_path_secrets else None),
         },
     }
     return _to_rachet_packet(packet)

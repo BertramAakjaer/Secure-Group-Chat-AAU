@@ -11,10 +11,11 @@ class TreeNode:
         self.pri_key = None
 
 
-    def apply_seed(self, seed: bytes): # Sets a new seed and derives keys
+    def apply_seed(self, seed: bytes, keep_public_key: bool = False): # Sets a new seed and derives keys
         self.seed = seed
         self.pri_key, pub_key = crypt_engine.asym.derive_keypair(seed)
-        self.pub_key_bytes = crypt_engine.asym.get_public_bytes(pub_key)
+        if not keep_public_key or self.pub_key_bytes is None:
+            self.pub_key_bytes = crypt_engine.asym.get_public_bytes(pub_key)
 
 
     def wipe_private_data(self): # When removing an account or changing the root
