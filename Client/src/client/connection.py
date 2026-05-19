@@ -163,7 +163,7 @@ def handle_incoming_message(data):
                 epoch = payload.get("epoch", None)
                 
                 if session.rachet_group and epoch:
-                    message = crypt_engine.decrypt_message(session.rachet_group.get_root_key(epoch), cipher)
+                    _, message = crypt_engine.decrypt_message(session.rachet_group.get_root_key(epoch), cipher)
                     session.messages.append(f"[{username}] {message}")
                 else:
                     message = cipher
