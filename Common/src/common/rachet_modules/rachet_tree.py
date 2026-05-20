@@ -195,6 +195,10 @@ class RatchetGroup:
         self._apply_seed_to_path(self._my_leaf_index, leaf_seed)
         
         
+    def manual_key_rotation(self):
+        return self._rotate_keys()
+        
+        
 
     # Rachet mechanics - - - -
     

@@ -253,6 +253,13 @@ def handle_admin_command(message):
         packet = join_accepted_packet(session.group_uuid, session.group_name, welcome_data, target_uuid)
         send_packet(packet)
         return True
+    
+    if command == "!rotate" and session.rachet_group:
+        commit_data, welcome_data = session.rachet_group.manual_key_rotation()
+        send_commit_package(commit_data)
+
+        return True
+    
     return False
 
 
