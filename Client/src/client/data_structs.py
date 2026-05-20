@@ -13,6 +13,7 @@ class SessionInfo:
     
     group_uuid: str | None = None
     group_name: str | None = None
+    is_owner: bool = False
     
     messages: list[str] = field(default_factory=list)    
     
