@@ -234,13 +234,20 @@ def join_group(group_uuid):
 # Admin commands
 def handle_admin_command(message):
     parts = message.strip().split()
-    if len(parts) < 2:
-        return False
+    
+    if len(parts) == 0:
+            return False
     
     command = parts[0].lower()
-    target_uuid = parts[1]
 
-    if command == "!accept" and session.rachet_group and (target_uuid in session.waiting_requests):
+    if (command == "!accept") and session.rachet_group:
+        target_uuid: str
+        
+        if len(parts) == 2:
+            target_uuid = parts[1]
+            if not (target_uuid in session.waiting_requests):
+                return False
+        
         pub_key_b64 = session.waiting_requests.pop(target_uuid)
         pub_raw_bytes = base64.b64decode(pub_key_b64.encode('utf-8'))
         
@@ -254,8 +261,8 @@ def handle_admin_command(message):
         send_packet(packet)
         return True
     
-    if command == "!rotate" and session.rachet_group:
-        commit_data, welcome_data = session.rachet_group.manual_key_rotation()
+    if (command == "!rotate") and session.rachet_group:
+        commit_data = session.rachet_group.manual_key_rotation()
         send_commit_package(commit_data)
 
         return True
