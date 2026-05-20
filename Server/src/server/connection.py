@@ -23,7 +23,7 @@ def handle_client(conn, addr, client_uuid):
             try:
                 data = recv_big(conn)
                 
-                # If no data, the client disconnected
+                # If no data, the client is disconnected
                 if not data:
                     break
                 

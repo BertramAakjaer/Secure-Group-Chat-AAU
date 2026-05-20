@@ -130,6 +130,7 @@ def handle_incoming_message(data):
                 session.is_waiting = False
                 
                 if session.rachet_group:
+                    session.is_owner = True
                     session.rachet_group.create_group()
             
             case PackageType.JOIN_REQUEST_TO_ADMIN.value:
@@ -163,7 +164,7 @@ def handle_incoming_message(data):
                 epoch = payload.get("epoch", None)
                 
                 if session.rachet_group and epoch:
-                    message = crypt_engine.decrypt_message(session.rachet_group.get_root_key(epoch), cipher)
+                    _, message = crypt_engine.decrypt_message(session.rachet_group.get_root_key(epoch), cipher)
                     session.messages.append(f"[{username}] {message}")
                 else:
                     message = cipher
@@ -233,14 +234,20 @@ def join_group(group_uuid):
 
 # Admin commands
 def handle_admin_command(message):
-    parts = message.strip().split()
-    if len(parts) < 2:
+    if not session.is_owner:
         return False
     
+    parts = message.strip().split()
     command = parts[0].lower()
-    target_uuid = parts[1]
 
-    if command == "!accept" and session.rachet_group and (target_uuid in session.waiting_requests):
+    if (command == "!accept") and session.rachet_group:
+        target_uuid: str
+        
+        if len(parts) == 2:
+            target_uuid = parts[1]
+            if not (target_uuid in session.waiting_requests):
+                return False
+        
         pub_key_b64 = session.waiting_requests.pop(target_uuid)
         pub_raw_bytes = base64.b64decode(pub_key_b64.encode('utf-8'))
         
@@ -253,6 +260,13 @@ def handle_admin_command(message):
         packet = join_accepted_packet(session.group_uuid, session.group_name, welcome_data, target_uuid)
         send_packet(packet)
         return True
+    
+    if (command == "!rotate") and session.rachet_group:
+        commit_data = session.rachet_group.manual_key_rotation()
+        send_commit_package(commit_data)
+
+        return True
+    
     return False
 
 

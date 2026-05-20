@@ -195,12 +195,44 @@ function sendMessage() {
     .catch((error) => console.error("Send error:", error));
 }
 
-// Trigger send when Enter is pressed
+/*// Trigger send when Enter is pressed
 document.addEventListener("DOMContentLoaded", () => {
   const msgInput = document.getElementById("messageInput");
   if (msgInput) {
     msgInput.addEventListener("keypress", function (e) {
       if (e.key === "Enter") sendMessage();
     });
+  }
+});*/
+
+document.addEventListener("keydown", function (event) {
+  if (event.key !== "Enter") return;
+
+  // LOGIN SECTION
+  if (document.getElementById("login-section").offsetParent !== null) {
+    event.preventDefault();
+    connectToServer();
+    return;
+  }
+
+  // CREATE GROUP SECTION
+  if (document.getElementById("create-group-section").offsetParent !== null) {
+    event.preventDefault();
+    createGroup();
+    return;
+  }
+
+  // JOIN GROUP SECTION
+  if (document.getElementById("join-group-section").offsetParent !== null) {
+    event.preventDefault();
+    joinGroup();
+    return;
+  }
+
+  // CHAT SECTION
+  if (document.getElementById("chat-wrapper").style.display !== "none") {
+    event.preventDefault();
+    sendMessage();
+    return;
   }
 });

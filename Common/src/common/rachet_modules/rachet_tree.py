@@ -42,6 +42,7 @@ class RatchetGroup:
         
         # Store my offline private key for decrypting direct path secrets
         self._my_offline_pri_key = None
+        self._my_leaf_index = None
 
 
     # Tree navigation helper functions - - - -
@@ -83,14 +84,18 @@ class RatchetGroup:
             else:
                 self.tree[index].pub_key_bytes = None
 
+        # Update own leaf index after applying tree state
+        self._my_leaf_index = self._find_leaf_by_uid(self.my_uid)
+
     # Takes seed and a start node index and rachet all the way to the root
     def _apply_seed_to_path(self, start_index, initial_seed):
         current_seed = initial_seed
         path = self._get_direct_path(start_index)
         
-        for index in path: # Goes index by index (starting at node and ending at root)
-            self.tree[index].apply_seed(current_seed)
-            if index != 0:
+        for idx in path: # Goes index by index (starting at node and ending at root)
+            keep_public_key = idx == start_index and idx >= self.leaf_start_index and self.tree[idx].pub_key_bytes is not None
+            self.tree[idx].apply_seed(current_seed, keep_public_key=keep_public_key)
+            if idx != 0:
                 current_seed = crypt_engine.derive_parent_seed(current_seed)
                 
     
@@ -118,6 +123,7 @@ class RatchetGroup:
         
         my_leaf_index = self.leaf_start_index # First index in leafs
         self.tree[my_leaf_index].uid = self.my_uid
+        self._my_leaf_index = my_leaf_index
         
         current_seed = crypt_engine.gen_seed() # Generates 32-bytes seed
         self._apply_seed_to_path(my_leaf_index, current_seed) # Rachet new seeds up
@@ -137,20 +143,14 @@ class RatchetGroup:
         # Populates data
         self.tree[new_leaf_idx].uid = new_uid
         self.tree[new_leaf_idx].pub_key_bytes = new_pub_key_bytes
-        
 
-        # Creates commit package 
-        commit_data = self._rotate_keys()
-
-        
-        encrypted_root = None
-        if self.tree[0].seed:
-            peer_pub_key = crypt_engine.asym.load_public_key(new_pub_key_bytes)
-            encrypted_root = crypt_engine.asym.encapsulate_secret(None, peer_pub_key, self.tree[0].seed)
+        # Create a new leaf path secret and encrypt it for the new member
+        peer_pub_key = crypt_engine.asym.load_public_key(new_pub_key_bytes)
+        commit_data, encrypted_leaf_secret = self._rotate_keys(start_leaf_idx=new_leaf_idx, leaf_encryption_public_key=peer_pub_key)
 
         # Serialize the public state of the tree for welcome packet
         tree_state = self._serialize_tree_state()
-        welcome_data = welcome_packet(self.epoch, tree_state, encrypted_root)
+        welcome_data = welcome_packet(self.epoch, tree_state, encrypted_leaf_secret)
 
         return commit_data, welcome_data
 
@@ -185,11 +185,18 @@ class RatchetGroup:
         # Fill the tree information form list
         self._apply_tree_state(welcome_pkg["tree_state"])
 
-        # Decrypt the root secret
-        root_seed = crypt_engine.asym.decapsulate_secret(my_offline_pri_key, welcome_pkg["encrypted_root"])
+        # Resolve our leaf index in the new tree
+        self._my_leaf_index = self._find_leaf_by_uid(self.my_uid)
+        if self._my_leaf_index == -1:
+            raise ValueError("Joined user UID does not appear in tree state")
+
+        # Decrypt the leaf path secret and derive up to the root
+        leaf_seed = crypt_engine.asym.decapsulate_secret(my_offline_pri_key, welcome_pkg["encrypted_leaf_secret"])
+        self._apply_seed_to_path(self._my_leaf_index, leaf_seed)
         
-        # Applying the decryptet root seed
-        self.tree[0].apply_seed(root_seed)
+        
+    def manual_key_rotation(self):
+        return self._rotate_keys()
         
         
 
@@ -207,21 +214,21 @@ class RatchetGroup:
         return tree_state
     
     # Rotate keys and creates COMMIT packet
-    def _rotate_keys(self):
+    def _rotate_keys(self, start_leaf_idx=None, leaf_encryption_public_key=None):
         
-        # Recieving my leaf
-        my_leaf_idx = self._find_leaf_by_uid(self.my_uid)
+        if start_leaf_idx is None:
+            start_leaf_idx = self._find_leaf_by_uid(self.my_uid)
         
         new_seed = crypt_engine.gen_seed()
-        path = self._get_direct_path(my_leaf_idx)
-        path_set = set(path)  # Faster index search
+        path = self._get_direct_path(start_leaf_idx)
         
         commit_operations = []
         current_seed = new_seed
 
         # Applies new seeds up the path and prepares the commit operations for siblings
         for index in path:
-            self.tree[index].apply_seed(current_seed)
+            keep_public_key = index == start_leaf_idx and index >= self.leaf_start_index and self.tree[index].pub_key_bytes is not None
+            self.tree[index].apply_seed(current_seed, keep_public_key=keep_public_key)
             
             if index != 0: # If not root, prepare the seed for the parent
                 parent_index = self._parent(index)
@@ -243,30 +250,15 @@ class RatchetGroup:
                 
                 current_seed = next_seed # Starts next iteration
         
-        
         self.epoch += 1 # Epoch changed
-        
-        # Create direct path secrets for members not on the rotation path
-        direct_path_secrets = []
-        root_seed = self.tree[0].seed
-        
-        if root_seed:
-            # Find all active members and send them direct path secrets if they're not on this path
-            for leaf_idx in range(self.leaf_start_index, self.total_nodes):
-                leaf_uid = self.tree[leaf_idx].uid
-                
-                # If user is not touched by path
-                if leaf_uid and leaf_idx not in path_set and self.tree[leaf_idx].pub_key_bytes:
-                    leaf_pub_key = crypt_engine.asym.load_public_key(self.tree[leaf_idx].pub_key_bytes)
-                    encrypted_root = crypt_engine.asym.encapsulate_secret(None, leaf_pub_key, root_seed)
-                    direct_path_secrets.append({
-                        "leaf_index": leaf_idx,
-                        "encrypted_root": encrypted_root
-                    })
-        
+
         # Include tree state in commit so all members can synchronize
         tree_state = self._serialize_tree_state()
-        commit_data = commit_packet(commit_operations, self.epoch, tree_state, direct_path_secrets if direct_path_secrets else None)
+        commit_data = commit_packet(commit_operations, self.epoch, tree_state)
+        
+        if leaf_encryption_public_key is not None:
+            encrypted_leaf_secret = crypt_engine.asym.encapsulate_secret(None, leaf_encryption_public_key, new_seed)
+            return commit_data, encrypted_leaf_secret
         return commit_data
 
 
@@ -284,42 +276,23 @@ class RatchetGroup:
         if commit_pkg.get("tree_state"):
             self._apply_tree_state(commit_pkg["tree_state"])
         
-        # Sørger for at nye leafs også har en krypteret nøgle
-        # Tjekker om den eksisterer
-        if commit_pkg.get("direct_path_secrets") and self._my_offline_pri_key:
-            
-            direct_secrets = commit_pkg["direct_path_secrets"]
-            
-            if not isinstance(direct_secrets, list):
-                direct_secrets = [direct_secrets] if direct_secrets else []
-            
-            # Find my leaf
-            my_leaf_index = self._find_leaf_by_uid(self.my_uid)
-            
-            # Look for a direct secret for my leaf (if this uses has just joined)
-            for direct_secret in direct_secrets:
-                if my_leaf_index is not None and direct_secret["leaf_index"] == my_leaf_index:
-                    
-                    # Hvis vores nøgle ikke er korrekt vil koden fejle
-                    try:
-                        root_seed = crypt_engine.asym.decapsulate_secret(self._my_offline_pri_key, direct_secret["encrypted_root"])
-                        self.tree[0].apply_seed(root_seed)
-                        return  # Successfully got root from direct secret
-                    
-                    except Exception:
-                        pass  # Decryption failed, continue to regular process
-        
-        
         # Looking for sibling with encrypted key
         decrypted_seed = None
         correct_sibling = -1
 
-        # Find an encrypted seed we can decrypt
+        # Find an encrypted seed we can decrypt using either our offline leaf key or a path node key
         for operation in commit_pkg["operations"]:
             target_index = operation["target_node"]
             encrypt_for_index = operation["encrypt_for"]
-            
-            # Checks the sibling node to see if we have the correct key
+
+            if encrypt_for_index == self._my_leaf_index and self._my_offline_pri_key:
+                try:
+                    decrypted_seed = crypt_engine.asym.decapsulate_secret(self._my_offline_pri_key, operation["encrypted_data"])
+                    correct_sibling = target_index
+                    break
+                except Exception:
+                    pass
+
             my_node = self.tree[encrypt_for_index]
             if my_node.pri_key:
                 try:
