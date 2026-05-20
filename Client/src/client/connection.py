@@ -130,6 +130,7 @@ def handle_incoming_message(data):
                 session.is_waiting = False
                 
                 if session.rachet_group:
+                    session.is_owner = True
                     session.rachet_group.create_group()
             
             case PackageType.JOIN_REQUEST_TO_ADMIN.value:
@@ -233,11 +234,10 @@ def join_group(group_uuid):
 
 # Admin commands
 def handle_admin_command(message):
+    if not session.is_owner:
+        return False
+    
     parts = message.strip().split()
-    
-    if len(parts) == 0:
-            return False
-    
     command = parts[0].lower()
 
     if (command == "!accept") and session.rachet_group:

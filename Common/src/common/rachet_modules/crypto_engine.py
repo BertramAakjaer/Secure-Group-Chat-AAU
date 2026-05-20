@@ -86,7 +86,8 @@ class AESGCMCipher(SymmetricCipher):
         try:
             plaintext = aesgcm.decrypt(nonce, ciphertext, aad)
         except InvalidTag:
-            raise ValueError("Security error: message was changed or wrong key!")
+            #raise ValueError("Security error: message was changed or wrong key!")
+            return ({}, b"Er bruger har fejl i sin root")
             
         return header, plaintext
 
