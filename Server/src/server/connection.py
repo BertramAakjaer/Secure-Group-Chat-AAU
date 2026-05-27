@@ -60,10 +60,14 @@ def handle_client(conn, addr, client_uuid):
                         
                         case PackageType.USER_INFO.value:
                             uuid = msg_payload.get("uuid")
-                            username = msg_payload.get("username")
-                            if uuid in clients:
-                                clients[uuid] = (clients[uuid][0], clients[uuid][1], clients[uuid][2], username)
-                                print(f"[USER INFO] {uuid} is {username}")
+                            
+                            if (client_uuid == uuid):
+                                username = msg_payload.get("username")
+                                if uuid in clients:
+                                    clients[uuid] = (clients[uuid][0], clients[uuid][1], clients[uuid][2], username)
+                                    print(f"[USER INFO] {uuid} is {username}")
+                            else:
+                                print(f"[EXPOSED] User {client_uuid} is trying to impersonate {uuid}")
                         
                         case PackageType.MSG.value:
                             message = msg_payload.get("message")

@@ -107,12 +107,15 @@ class RatchetGroup:
         if epoch in self.cached_keys:
             return self.cached_keys[epoch]
         
+        if epoch != self.epoch:
+            raise ValueError("Error: Key not known for this user")
+        
         root_seed = self.tree[0].seed
         if not root_seed:
             raise ValueError("Root secret is not established yet!")
         
         root_key = crypt_engine.derive_application_key(root_seed)
-        self.cached_keys[epoch] = root_key
+        self.cached_keys[self.epoch] = root_key
         return root_key
 
 
